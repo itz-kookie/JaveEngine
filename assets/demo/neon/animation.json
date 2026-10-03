@@ -1,0 +1,34 @@
+{
+  "scale": 1,
+  "flipX": false,
+  "idle": {
+    "width": 220,
+    "height": 310,
+    "fps": 8,
+    "loop": true
+  },
+  "left": {
+    "width": 220,
+    "height": 310,
+    "fps": 8,
+    "loop": true
+  },
+  "down": {
+    "width": 220,
+    "height": 310,
+    "fps": 8,
+    "loop": true
+  },
+  "up": {
+    "width": 220,
+    "height": 310,
+    "fps": 8,
+    "loop": true
+  },
+  "right": {
+    "width": 220,
+    "height": 310,
+    "fps": 8,
+    "loop": true
+  }
+}

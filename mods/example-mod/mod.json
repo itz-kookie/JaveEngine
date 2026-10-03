@@ -1,0 +1,9 @@
+{
+  "id": "example-mod",
+  "name": "Example Mod",
+  "version": "1.0.0",
+  "author": "Jave Engine",
+  "description": "A harmless example showing the package layout.",
+  "enabled": true
+}
+

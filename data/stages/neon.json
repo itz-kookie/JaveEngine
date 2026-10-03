@@ -1,0 +1,24 @@
+{
+  "hideGirlfriend": true,
+  "layout": {
+    "width": 1280,
+    "height": 720,
+    "placements": {
+      "girlfriend": { "anchor": [640, 400], "scale": 1 },
+      "player": {
+        "anchor": [
+          950,
+          585
+        ],
+        "scale": 1
+      },
+      "opponent": {
+        "anchor": [
+          330,
+          585
+        ],
+        "scale": 1
+      }
+    }
+  }
+}

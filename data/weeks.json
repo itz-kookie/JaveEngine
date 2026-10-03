@@ -1,0 +1,18 @@
+{
+  "format": "jave-weeks-v1",
+  "weeks": [
+    {
+      "id": "demo",
+      "name": "Demo Week",
+      "storyName": "First Beat",
+      "songs": [
+        "neon-steps"
+      ],
+      "color": [
+        95,
+        227,
+        255
+      ]
+    }
+  ]
+}

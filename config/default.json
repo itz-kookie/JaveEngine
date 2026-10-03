@@ -1,0 +1,9 @@
+{
+  "masterVolume": 0.8,
+  "noteSpeed": 1.0,
+  "downscroll": false,
+  "fullscreen": false,
+  "showFps": true,
+  "keybinds": [68, 70, 74, 75]
+}
+

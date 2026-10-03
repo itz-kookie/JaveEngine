@@ -1,0 +1,21 @@
+{
+  "id": "neon-steps",
+  "title": "Neon Steps",
+  "artist": "Jave Engine Demo Band",
+  "bpm": 120,
+  "previewMs": 2000,
+  "audio": "songs/neon-steps/Inst.wav",
+  "chart": "data/charts/neon-steps.json",
+  "description": "An original, procedurally synthesized demo track.",
+  "license": "CC0-1.0",
+  "week": "demo",
+  "stage": "neon",
+  "playerCharacter": "neon",
+  "opponentCharacter": "pulse",
+  "hideGirlfriend": true,
+  "stageImage": "assets/demo/stage.png",
+  "playerVisual": "assets/demo/neon",
+  "opponentVisual": "assets/demo/pulse",
+  "playerIcon": "assets/demo/neon/icon.png",
+  "opponentIcon": "assets/demo/pulse/icon.png"
+}
