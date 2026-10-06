@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Plays Neon Steps under botplay in real time (about 26 s) and checks the original engine's botplay result.
+## Plays Neon Steps under botplay in real time (about 26 s) and checks the expected botplay score.
 const TIMEOUT_SECONDS := 45.0
 const EXPECTED_SCORE := 350 * 64 + 100 * 4
 

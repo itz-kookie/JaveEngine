@@ -12,6 +12,10 @@ static var accent2 := Color8(255, 81, 170)
 static var _bold_font: SystemFont
 
 
+static func version() -> String:
+	return str(ProjectSettings.get_setting("application/config/version", ""))
+
+
 static func bold_font() -> Font:
 	if _bold_font == null:
 		_bold_font = SystemFont.new()

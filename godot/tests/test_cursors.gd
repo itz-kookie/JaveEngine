@@ -1,6 +1,6 @@
 extends "res://tests/test_base.gd"
 
-## Unwindowed reference: every scan walks the whole chart, as the original engine did.
+## Unwindowed reference: every scan walks the whole chart, to check the windowed cursors against.
 class BruteForce:
 	var chart: ChartData
 	var score := 0

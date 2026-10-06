@@ -1,29 +1,26 @@
-# Importing legally owned rhythm-game content
+# Content and importing
 
-Jave Engine does not include Friday Night Funkin' songs, characters, or source code. You may import content only when its license permits it or you have permission from its owner.
+Import content only when its license allows it or its owner has given permission. Imported media keeps its authors' rights and must not be committed or redistributed without them.
 
-## Jave package layout
+## Package layout
+
+The repository root is the base package. The game sees it through `godot/content/` (`res://content/`). Mods use the same layout inside their own folder.
 
 ```text
-songs/<song-id>/
-  song.json
-  Inst.wav
-data/charts/
-  <song-id>.json
-assets/images/
-mods/<mod-id>/
-  mod.json
-  songs/
-  data/charts/
-  data/weeks.json
-  assets/
-  scripts/
-scripts/
-config/
-saves/
+songs/<song-id>/song.json     song manifest
+songs/<song-id>/Inst.wav      song audio (any path named by song.json)
+data/charts/<song-id>.json    chart, see CHART_FORMAT.md
+data/stages/<stage>.json      stage camera and layout, see STAGE_PLACEMENT.md
+data/weeks.json               Story Mode weeks
+data/weeks.imported.json      imported Story Mode weeks (base package only, optional, not tracked)
+data/cutscenes.json           Story Mode videos (base package only, optional, not tracked)
+assets/                       images, characters, videos
+scripts/                      Lua scripts, see SCRIPTING.md
+config/default.json           default settings
+mods/<mod-id>/                mod packages
 ```
 
-Create `songs/my-song/song.json`:
+## song.json
 
 ```json
 {
@@ -31,66 +28,113 @@ Create `songs/my-song/song.json`:
   "title": "My Song",
   "artist": "Artist Name",
   "bpm": 120,
+  "previewMs": 2000,
+  "order": 10,
   "audio": "songs/my-song/Inst.wav",
   "chart": "data/charts/my-song.json",
+  "stage": "neon",
+  "stageImage": "assets/my-stage.png",
+  "playerVisual": "assets/characters/hero",
+  "opponentVisual": "assets/characters/rival",
+  "girlfriendVisual": "",
+  "playerIcon": "assets/characters/hero/icon.png",
+  "opponentIcon": "assets/characters/rival/icon.png",
+  "hideGirlfriend": true,
   "description": "Used with permission",
   "license": "Your license or permission note"
 }
 ```
 
-Convert the instrumental to 16-bit PCM WAV or Microsoft ADPCM WAV. Jave Engine v0.1 uses one mixed song file; split vocal stems should be mixed with the instrumental during import.
+- Paths are relative to the package root (the repository root, or the mod folder for a mod's songs).
+- A song is listed only if its `chart` file exists. Freeplay sorts by `order`, then title; `previewMs` is where the Freeplay preview starts.
+- `stage` selects `data/stages/<stage>.json` in the same package. Placement and camera fields (`boyfriendPosition`, `opponentPosition`, `girlfriendPosition`, `cameraBoyfriend`, `cameraOpponent`, `cameraGirlfriend`, `defaultZoom`, `cameraSpeed`, `hideGirlfriend`) may also be set here; the stage file overrides them.
+- `*Visual` fields name character folders (see [Stage placement](STAGE_PLACEMENT.md#character-folders)).
 
-## Psych-style charts
+## Audio
 
-Psych-style song folders commonly contain a chart JSON under `mods/<mod>/data/<song>/` and `Inst.ogg`/`Voices.ogg` under `mods/<mod>/songs/<song>/`. Jave Engine does not execute Psych Lua directly and does not silently copy assets.
+Song audio is a single mixed file: vocals must be mixed into the instrumental. Supported formats:
 
-To convert a chart you have rights to:
+- WAV: PCM, float, and Microsoft ADPCM (decoded by the engine).
+- Ogg Vorbis (`.ogg`).
 
-1. Read its section notes, usually `[strumTime, noteData, sustainLength, ...]`.
-2. Set `timeMs` to `strumTime`.
-3. Normalize `lane` to `noteData % 4`. `mustHitSection` chooses the base player/opponent side; Psych note values 4–7 flip ownership to the other side.
-4. Set `lengthMs` to `sustainLength` when positive.
-5. Apply any source chart offset deliberately and test sync.
-6. Export the result using `jave-chart-v1` from [CHART_FORMAT.md](CHART_FORMAT.md).
+When `audio` names a `.wav`, mobile builds play a sibling `.ogg` with the same name if it exists, and any build uses that `.ogg` when the WAV is missing. `python tools/convert_audio.py` creates those `.ogg` files; it needs an FFmpeg with `libvorbis` (see [Cutscenes](#cutscenes) for one that has it).
 
-The included helper performs this timing conversion and preserves both streams by default:
+## Weeks
 
-```powershell
-python tools/convert_psych_chart.py path\to\source.json data\charts\my-song.json
+`data/weeks.json`:
+
+```json
+{ "format": "jave-weeks-v1", "weeks": [
+  { "id": "demo", "name": "Demo Week", "storyName": "First Beat", "songs": ["neon-steps"], "color": [95, 227, 255] }
+] }
 ```
 
-The converter preserves both sides by default and writes `owner: player` or `owner: opponent`. Pass `--player-only` only when deliberately discarding the opponent performance.
+A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `data/weeks.imported.json` (written by the Psych importer, gitignored) are listed first, then the shipped `data/weeks.json`; if both define the same id, the imported week is used. Weeks from enabled mods are added after the base package's weeks.
 
-To import an entire local Psych installation, including mixed instrumental and voice stems:
+## Cutscenes
 
-```powershell
-python tools/import_psych_library.py C:\path\to\PsychEngine . --ffmpeg C:\path\to\ffmpeg.exe
+Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (`.ogv`) files listed in `data/cutscenes.json`, an optional local file (the demo has no cutscenes, so none is shipped, and the path is gitignored):
+
+```json
+{ "my-song": { "before": "assets/videos/intro.ogv", "after": "assets/videos/outro.ogv" } }
 ```
 
-The batch importer preserves unsupported difficulty/event JSON under `migration/source-unconverted/` and writes `PSYCH_IMPORT_REPORT.md`.
+Paths are relative to the content root; absolute paths and `..` are rejected. A missing or unplayable video is skipped. `user://content/data/cutscenes.json` and files under `user://content/` take precedence over the files in the content folders.
 
-For a self-contained Jave mod, create `mods/<mod-id>/mod.json` and use the package layout above. Convert charts individually, prepare legally usable WAV audio and graphics, then validate the package:
+`python tools/convert_cutscenes.py` converts each listed video (for example MP4) to a sibling `.ogv` and rewrites the manifest entry. It needs an FFmpeg with the `libtheora` and `libvorbis` encoders. Homebrew's `ffmpeg` lacks both; the practical route is the binary bundled with the `imageio-ffmpeg` pip package:
 
-```powershell
-python tools/validate_jave_mod.py mods\my-mod
+```sh
+python -m pip install imageio-ffmpeg
+python tools/convert_cutscenes.py --ffmpeg "$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
 ```
 
-Enabled Jave mod packages may contribute their own `songs/*/song.json` files and `data/weeks.json`; all paths inside those song manifests resolve from the mod folder. Keep source backups separately and migrate unsupported scripts and events manually.
+Use `--dry-run` to preview. Local video files under `assets/videos/` are gitignored.
 
-Because engine forks vary, conversion should be reviewed by a human. Preserve the source license and credits.
+## Psych-style content
 
-## V-Slice-style charts
+Jave does not run Psych Lua scripts or events.
 
-V-Slice packages commonly keep metadata and chart files under `data/songs/<song-id>/`, with audio in `songs/<song-id>/`. V-Slice chart data can contain multiple difficulties, variations, events, and separate note streams. Select one difficulty, flatten its playable notes into milliseconds and lanes 0–3, then create a Jave metadata file. Unsupported events should be documented rather than guessed.
+Convert one chart you have rights to:
+
+```sh
+python tools/convert_psych_chart.py path/to/source.json data/charts/my-song.json
+```
+
+It keeps both sides: `mustHitSection` selects the base side and note values 4–7 flip it. `lane` is `noteData % 4`, `lengthMs` is the sustain length. `--player-only` drops opponent notes; `--difficulty` sets the label. Review sync and apply any source offset by hand.
+
+Import a whole local Psych Engine installation (songs, normal-difficulty charts, stages, characters, icons, note skins, weeks):
+
+```sh
+python tools/import_psych_library.py /path/to/PsychEngine . --ffmpeg /path/to/ffmpeg
+python tools/import_menu_art.py /path/to/PsychEngine .
+python tools/configure_stage_layouts.py
+```
+
+- Instrumental and voice stems are mixed into one Microsoft ADPCM WAV per song (`songs/<id>/Song.wav`).
+- Ownership follows `mustHitSection` for each section.
+- Unconverted JSON is kept under `migration/source-unconverted/` and summarised in `PSYCH_IMPORT_REPORT.md`.
+- `--characters-only [--character ID]` and `--notes-only` rebuild just those parts.
+
+Everything the importer writes is gitignored: songs, charts, stages, `assets/imported/`, `data/weeks.imported.json`, `migration/` and `PSYCH_IMPORT_REPORT.md`. It does not touch the shipped `data/weeks.json`. Check `git status` and do not commit imported media.
+
+## Mods
+
+A mod is a folder with a `mod.json` (see [Scripting](SCRIPTING.md#mods)) and the package layout above. Its songs, charts, stages, weeks and scripts resolve from the mod folder. Validate a mod with:
+
+```sh
+python tools/validate_jave_mod.py mods/my-mod
+```
+
+Mods are loaded from the repository's `mods/` and from `user://mods/`.
 
 ## Images and animation
 
-The renderer supports PNG frames with `animation.json` metadata, cached GDI+ images, frame durations and looping. See the original demo's `assets/demo/neon/animation.json` and its pose folders for a working example. Import helpers can bake supported source atlases into PNG frames. Describe asset licenses in the mod README.
+Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is read from `assets/imported/notes/`, and each file missing there falls back to the demo arrows in `assets/demo/notes/`.
 
-## Safety checklist
+## Checklist
 
 - Confirm you own the content or its license allows redistribution.
 - Credit every creator and keep license files.
-- Do not package the original commercial/fan-game assets merely because they are easy to find online.
-- Test audio sync, lane ownership, sustains, and difficulty naming.
-- Treat third-party Lua mods as code: inspect scripts before running them.
+- Test audio sync, lane ownership, holds and difficulty naming.
+- Treat third-party Lua as code: read scripts before running them.
+- Run `python tools/validate_content.py` after importing.

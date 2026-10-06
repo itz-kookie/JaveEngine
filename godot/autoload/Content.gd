@@ -1,6 +1,9 @@
 extends Node
 
 const CUTSCENE_MANIFEST := "data/cutscenes.json"
+const WEEKS_FILE := "data/weeks.json"
+## Written by tools/import_psych_library.py and kept out of git; its weeks list before the shipped ones.
+const IMPORTED_WEEKS_FILE := "data/weeks.imported.json"
 
 var songs: Array[SongMeta] = []
 var weeks: Array[WeekMeta] = []
@@ -24,8 +27,12 @@ func scan() -> void:
 	for package_root in _enabled_package_roots():
 		_scan_songs(package_root)
 	songs.sort_custom(_song_before)
+	var has_song := func(id: String) -> bool: return find_song(id) != null
 	for package_root in _enabled_package_roots():
-		_scan_weeks(package_root)
+		var lists: Array[Array] = [_read_weeks(package_root.path_join(WEEKS_FILE))]
+		if package_root == Paths.CONTENT_ROOT:
+			lists.push_front(_read_weeks(package_root.path_join(IMPORTED_WEEKS_FILE)))
+		weeks.append_array(playable_weeks(lists, has_song))
 
 
 ## Flips a mod's enabled state, persists it, and rescans so its songs and weeks appear or vanish.
@@ -135,14 +142,29 @@ func _scan_songs(package_root: String) -> void:
 			songs.append(song)
 
 
-func _scan_weeks(package_root: String) -> void:
-	var json: Variant = JsonRead.load_file(package_root.path_join("data/weeks.json"))
+## Weeks from each list in order, skipping ids already taken and weeks with none of their songs installed.
+static func playable_weeks(lists: Array[Array], has_song: Callable) -> Array[WeekMeta]:
+	var result: Array[WeekMeta] = []
+	var taken: Dictionary[String, bool] = {}
+	for list in lists:
+		for week: WeekMeta in list:
+			if taken.has(week.id) or not Array(week.song_ids).any(has_song):
+				continue
+			taken[week.id] = true
+			result.append(week)
+	return result
+
+
+static func _read_weeks(path: String) -> Array[WeekMeta]:
+	var result: Array[WeekMeta] = []
+	var json: Variant = JsonRead.load_file(path)
 	for item: Variant in JsonRead.array(json, "weeks"):
 		if not item is Dictionary:
 			continue
 		var week := WeekMeta.from_json(item)
 		if not week.id.is_empty() and not week.song_ids.is_empty():
-			weeks.append(week)
+			result.append(week)
+	return result
 
 
 static func _directories_at(path: String) -> PackedStringArray:

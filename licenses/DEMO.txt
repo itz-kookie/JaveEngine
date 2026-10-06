@@ -1,2 +1,8 @@
-Original Neon Steps audio/chart and public demo graphics: dedicated to the public domain under CC0 1.0.
-No imported FNF or mod media is included.
+The Neon Steps demo is dedicated to the public domain under CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/):
+
+- songs/neon-steps/ (audio and song manifest)
+- data/charts/neon-steps.json, data/stages/neon.json and data/weeks.json (the demo week)
+- assets/demo/ (stage, characters, icons and the note arrows in assets/demo/notes/)
+
+No imported FNF or mod media is included. Imported files (assets/imported/, data/weeks.imported.json, data/cutscenes.json and the other gitignored content) are supplied by the user and keep their authors' rights.

@@ -1,6 +1,6 @@
 # Jave chart format v1
 
-Charts are UTF-8 JSON files. Times are milliseconds from the start of the instrumental.
+Charts are UTF-8 JSON files. Times are milliseconds from the start of the song audio. A song's `song.json` names its chart with the `chart` field (see [Content import](CONTENT_IMPORT.md)).
 
 ```json
 {
@@ -23,46 +23,52 @@ Charts are UTF-8 JSON files. Times are milliseconds from the start of the instru
 
 ## Fields
 
-- `format`: must be `jave-chart-v1`
-- `song`: song identifier matching its metadata
-- `difficulty`: display label
-- `bpm`: positive tempo used by presentation and tooling
-- `offsetMs`: global chart shift; positive values make notes occur later
-- `notes`: note objects sorted by `timeMs`
-- `lane`: integer 0–3, left to right
-- `owner`: `player` or `opponent` (defaults to `player` for older Jave charts)
-- `lengthMs`: optional hold duration
-- `cameraEvents`: optional focus, forced-position, and zoom changes
+- `format`: must be `jave-chart-v1`.
+- `song`: song id (defaults to the id from `song.json`).
+- `difficulty`: label, default `normal`.
+- `bpm`: tempo, greater than 0 and at most 1000 (defaults to the `song.json` BPM). Drives idle animation timing and the chart editor's snap.
+- `offsetMs`: added to every note and camera event time; positive values make them later.
+- `notes`: at least one note. Notes are sorted by time on load, so file order does not matter.
+  - `timeMs`: required; must be 0 or more after `offsetMs` is applied.
+  - `lane`: required, 0–3, left to right.
+  - `owner`: `player` or `opponent`; anything else counts as `player`.
+  - `lengthMs`: optional hold length.
+- `cameraEvents`: optional; events without a `type` are skipped.
+  - `focus` with `target` `player` or `opponent`: pan toward that side.
+  - `position` with `x`, `y`: hold the camera at a stage position until the next `focus`.
+  - `zoom` with `amount`: a short zoom pulse.
+  - `setZoom` with `amount`: set the base zoom (clamped 0.55–1.5).
 
-Sustain heads are judged normally. Keep the matching lane key held until `timeMs + lengthMs`; releasing for more than 100 ms breaks the hold.
+A chart is rejected if the format, BPM, a note's lane or a note's time is invalid, or if it has no notes. Unknown fields are ignored. The song ends when its audio ends.
 
-Camera event types are `focus` (`player`/`opponent`), `position`, `zoom`, and `setZoom`. Imported Psych charts generate focus events from section ownership and retain supported camera events from `events.json`.
+## Judging
 
-The loader validates types, lane bounds, negative times, and ordering. Unknown fields are ignored so future tools can add editor metadata.
+Only player notes are judged; opponent notes play automatically.
 
-## Timing windows
+| Rating | Window | Score | Accuracy |
+| --- | --- | --- | --- |
+| Sick | ±45 ms | 350 | 100% |
+| Good | ±90 ms | 200 | 75% |
+| Bad | ±180 ms | 100 | 40% |
+| Miss | later than 180 ms | 0 | 0% |
 
-- Sick: ±45 ms
-- Good: ±90 ms
-- Bad: ±135 ms
-- Miss: past ±180 ms
-
-Accuracy weights are 100%, 75%, 40%, and 0% respectively.
+For a hold, hit the head normally and keep the lane held until `timeMs + lengthMs`. Releasing for more than 100 ms before the end breaks the hold and counts as a miss; completing it adds 100 points.
 
 ## In-game chart editor
 
-Press `7` while a song is playing. The editor pauses the song and works on a temporary chart copy.
+Press `7` while a song is playing. The song pauses and the editor works on a copy of the chart. The grid shows opponent lanes on the left and player lanes on the right; snap is a sixteenth note at the chart's BPM.
 
-- Move the pointer over the chart and use the mouse wheel to scroll through time.
-- Left-click a lane/time position to place a snapped note.
-- Right-click a displayed note to delete it.
-- The Add, Delete, Save Chart, and Exit buttons can be clicked.
-- `Q` / `E`: move the time cursor by one sixteenth-note snap
-- `Page Up` / `Page Down`: move by sixteen snaps
-- Left / Right: select lane 1–4
-- `Tab`: switch Player/Opponent ownership
-- `A` / `D`: shorten or lengthen the new note's sustain
-- `Space`: add or update a note at the cursor
-- Up / Down and Enter: use Add Note, Delete Nearest, Save Chart, or Exit Without Saving
+- Mouse wheel over the grid: scroll through time.
+- Left-click the grid: add a note there (or update the hold length of a note already there).
+- Right-click the grid: delete the nearest note in that lane.
+- Click Add Note, Delete Nearest, Save Chart or Exit Without Saving.
+- `Q` / `E`: move the time cursor one snap; `Page Up` / `Page Down`: sixteen snaps.
+- Left / Right: select lane; `Tab`: switch Player/Opponent.
+- `A` / `D`: shorten or lengthen the hold for new notes.
+- `Space`: add or update a note at the cursor.
+- Up / Down and Enter: choose and use the action buttons.
+- `7` or Escape: leave the editor.
 
-There is no automatic saving. The chart file is written only when **Save Chart** is selected. Pressing `7`, Escape, or Exit Without Saving returns to the song without writing unsaved editor changes.
+Nothing is written until **Save Chart**. Leaving without saving discards the edits. A chart with no notes cannot be saved.
+
+Saving writes to the user data folder at the mirror of the chart's path, for example `user://content/data/charts/neon-steps.json`, and the running song continues with the saved chart. From then on that file is loaded instead of the shipped chart. To return to the shipped chart, delete the file (see [Building](BUILDING.md#user-data) for the folder location). To keep an edit in the repository, copy the file over `data/charts/<song>.json`. Charts of mods installed in `user://mods/` are saved in place.

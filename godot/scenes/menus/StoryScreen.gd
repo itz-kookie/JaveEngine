@@ -22,7 +22,7 @@ func _build() -> void:
 	var screen := Ui.SCREEN_SIZE
 	Ui.menu_header(self, "STORY MODE", "Choose a week - NORMAL difficulty")
 	if Content.weeks.is_empty():
-		Ui.text(self, "No weeks found. See data/weeks.json", Rect2(64.0, 250.0, 900.0, 50.0), 24, EMPTY_COLOR)
+		Ui.text(self, "No weeks with installed songs. See data/weeks.json", Rect2(64.0, 250.0, 900.0, 50.0), 24, EMPTY_COLOR)
 		return
 	Ui.box(self, Rect2(0.0, 120.0, screen.x, screen.y * 0.37), BAND_COLOR)
 	for slot in 3:
@@ -55,7 +55,15 @@ func _confirm() -> void:
 func _selection_changed() -> void:
 	var week := Content.weeks[selection]
 	_show_tracks(week)
-	_show_preview(Content.find_song(week.song_ids[0]))
+	_show_preview(_first_installed(week))
+
+
+func _first_installed(week: WeekMeta) -> SongMeta:
+	for song_id in week.song_ids:
+		var song := Content.find_song(song_id)
+		if song != null:
+			return song
+	return null
 
 
 func _show_tracks(week: WeekMeta) -> void:
@@ -65,10 +73,12 @@ func _show_tracks(week: WeekMeta) -> void:
 	var y := screen.y * 0.64
 	for song_id in week.song_ids:
 		var song := Content.find_song(song_id)
+		if song == null:
+			continue
 		var label := FunkinLabel.new()
 		label.position = Vector2(screen.x * 0.58, y)
 		_tracks.add_child(label)
-		label.show_text(song.title if song != null else song_id, screen.x * 0.38, 29.0)
+		label.show_text(song.title, screen.x * 0.38, 29.0)
 		y += TRACK_SPACING
 
 
@@ -99,7 +109,7 @@ func _place_preview(slot: int, visual: String, center: float, height: float, is_
 	_set_preview_frame(slot)
 
 
-## The idle restarts every second, as the original menu drew it from a one-second clock; each frame is fitted to the box on its own.
+## The idle restarts every second; each frame is fitted to the box on its own.
 func _set_preview_frame(slot: int) -> void:
 	var sprite := _previews[slot]
 	var count := sprite.sprite_frames.get_frame_count(&"idle")
@@ -143,7 +153,7 @@ func _collect_loaded() -> void:
 		_finish(visual)
 		arrived = true
 	if arrived and not Content.weeks.is_empty():
-		_show_preview(Content.find_song(Content.weeks[selection].song_ids[0]))
+		_show_preview(_first_installed(Content.weeks[selection]))
 
 
 func _finish(visual: String) -> void:

@@ -26,6 +26,7 @@ func run() -> void:
 	_test_first_run_layout()
 	_test_defaults_come_from_shipped_config()
 	_test_ogg_preference()
+	_test_week_merging()
 	_remove_tree(TEMP_DIR)
 	check(not DirAccess.dir_exists_absolute(TEMP_DIR), "temporary directory removed")
 
@@ -71,6 +72,30 @@ func _test_ogg_preference() -> void:
 	_write(upper, "")
 	_write(song.path_join("Voices.ogg"), "")
 	check(_content_script.preferred_audio(upper, true) == song.path_join("Voices.ogg"), "extension match ignores case")
+
+
+func _test_week_merging() -> void:
+	var installed := PackedStringArray(["neon-steps", "fresh"])
+	var has_song := func(id: String) -> bool: return installed.has(id)
+	var imported: Array[WeekMeta] = [
+		WeekMeta.from_json({"id": "week1", "songs": ["bopeebo", "fresh"]}),
+		WeekMeta.from_json({"id": "week2", "songs": ["spookeez"]}),
+		WeekMeta.from_json({"id": "demo", "name": "Imported Demo", "songs": ["neon-steps"]}),
+	]
+	var shipped: Array[WeekMeta] = [
+		WeekMeta.from_json({"id": "demo", "name": "Demo Week", "songs": ["neon-steps"]}),
+		WeekMeta.from_json({"id": "extra", "songs": ["neon-steps"]}),
+	]
+	var lists: Array[Array] = [imported, shipped]
+	var merged: Array[WeekMeta] = _content_script.playable_weeks(lists, has_song)
+	var ids := PackedStringArray()
+	for week in merged:
+		ids.append(week.id)
+	check(ids == PackedStringArray(["week1", "demo", "extra"]), "imported weeks first, unplayable weeks skipped (got %s)" % [ids])
+	check(merged[1].name == "Imported Demo", "the first week with an id wins")
+	var empty: Array[WeekMeta] = []
+	var shipped_only: Array[Array] = [empty, shipped]
+	check(_content_script.playable_weeks(shipped_only, has_song).size() == 2, "missing imported weeks leave the shipped weeks")
 
 
 static func _write(path: String, text: String) -> void:

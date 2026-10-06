@@ -4,7 +4,7 @@ extends MenuScreen
 enum Option { VOLUME, NOTE_SPEED, SCROLL, FULLSCREEN, SHOW_FPS, AUDIO_OFFSET, FIRST_KEY }
 
 const LANE_NAMES: PackedStringArray = ["Left Key", "Down Key", "Up Key", "Right Key"]
-const HINT := "Use Left/Right to adjust. Enter rebinding items."
+const HINT := "Left/Right adjusts. Enter toggles a setting or rebinds a key."
 const REBIND_HINT := "Press a key, or Escape to cancel."
 const OVERLAY_COLOR := Color8(28, 31, 66)
 

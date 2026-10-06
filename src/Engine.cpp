@@ -110,8 +110,16 @@ std::filesystem::path animatedPosePath(const std::filesystem::path& base, int po
 
 std::filesystem::path noteImagePath(const std::filesystem::path& root, const wchar_t* kind, int lane) {
     constexpr const wchar_t* lanes[] = {L"left", L"down", L"up", L"right"};
-    return root / "assets" / "imported" / "notes" /
-           (std::wstring(kind) + L"_" + lanes[std::clamp(lane, 0, 3)] + L".png");
+    static std::map<std::wstring, std::filesystem::path> resolved;
+    const std::wstring fileName = std::wstring(kind) + L"_" + lanes[std::clamp(lane, 0, 3)] + L".png";
+    const std::filesystem::path imported = root / "assets" / "imported" / "notes" / fileName;
+    const auto found = resolved.find(imported.wstring());
+    if (found != resolved.end()) return found->second;
+    std::error_code error;
+    const std::filesystem::path path =
+        std::filesystem::exists(imported, error) ? imported : root / "assets" / "demo" / "notes" / fileName;
+    resolved.emplace(imported.wstring(), path);
+    return path;
 }
 
 } // namespace

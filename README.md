@@ -1,55 +1,78 @@
 # Jave Engine
 
-An independent C++20 rhythm-game engine with embedded Lua 5.4.8, currently for Windows 10/11 x64. Inspired by the folder-oriented workflow of FNF engines, not a fork of Psych Engine or V-Slice.
+A four-lane rhythm game built with Godot 4.7 and GDScript, with Lua 5.4 mod scripting. It runs on macOS, Windows and Linux, and has Android and iOS export presets. Content is plain folders of JSON, PNG, WAV/Ogg and Lua files, in the style of FNF engines.
 
 ## Features
 
-- Story Mode, Freeplay, Mods, Options, Credits and Exit menus.
-- JSON song/chart loading, player/opponent ownership, judgements, scoring and hold notes.
-- Animated PNG sprites, stage placements, health icons and camera events.
-- Audio playback, optional imported cutscene playback, configurable controls and saved settings.
-- Enter pause menu with Resume, Restart and Botplay.
-- In-song chart editor (`7`): scroll with the mouse wheel, left-click to add notes, right-click to remove notes. Changes are written only with Save Chart.
-- Lua hooks and mod folders. Psych import helpers are included, but arbitrary Psych Lua scripts are not drop-in compatible.
-- Fixed 1280x720 rendering scaled proportionally to the window or fullscreen display.
+- Title, Story Mode, Freeplay, Mods, Options, Credits and Results screens.
+- JSON songs and charts with player/opponent notes, holds, judgements, scoring, health and camera events.
+- Animated PNG characters, stage layouts, health icons and an optional speaker prop attached to a character.
+- WAV (PCM, float, Microsoft ADPCM) and Ogg Vorbis song audio; Ogg Theora cutscenes in Story Mode.
+- Pause menu with Resume, Restart Song and Botplay.
+- In-song chart editor (press `7`).
+- Lua hooks and mod packages that can add songs, weeks, stages and scripts.
+- Basic touch controls.
+- 1280x720 canvas scaled to the window, keeping its aspect ratio.
 
-This public source package includes **Neon Steps**, an original demo song/chart and simple original graphics. FNF songs, characters, menu artwork and videos are not bundled. **Arcade Showdown is not included.** Your own legally usable content can be imported locally.
+The repository ships one original demo song, **Neon Steps**, with its chart, stage and graphics. Other songs, characters, menu art and videos are imported locally by the user; see [Content import](docs/CONTENT_IMPORT.md).
 
-## Build
+## Run
 
-Install Visual Studio 2022 with Desktop development with C++, a Windows SDK, and CMake 3.25 or newer. In the project folder:
+Install [Godot 4.7](https://godotengine.org/download). Open `godot/project.godot` in the editor and press Play, or:
 
-```powershell
-cmake --preset windows-x64-release
-cmake --build --preset release
+```sh
+godot --path godot              # play
+godot --path godot -- --touch   # force touch controls on a desktop
+godot --path godot -- --botplay # start songs with Botplay on
 ```
 
-See `CMakePresets.json` for the exact presets and [building guide](docs/BUILDING.md) for alternatives. The first configure downloads a checksum-pinned Lua release. For an offline build without scripting, configure with `-DJAVE_ENABLE_LUA=OFF`.
+`godot` stands for the Godot executable, for example `/Applications/Godot.app/Contents/MacOS/Godot` on macOS. Building, tests and exports are covered in [Building](docs/BUILDING.md).
 
-Run the built `JaveEngine.exe` alongside its copied `assets`, `songs`, `data`, `mods`, `scripts`, `config`, `saves` and `licenses` folders. These files are required; the executable is not a standalone asset bundle.
+## Controls
 
-For Python content tools:
+| Where | Keys |
+| --- | --- |
+| Menus | Up/Down or W/S to move, Left/Right to adjust, Enter to select, Escape to go back |
+| Song | D F J K for the four lanes (rebindable in Options), Enter to pause, Escape to leave, `7` for the chart editor |
+| Pause menu | Up/Down, Enter; Escape resumes |
+| Cutscene | Enter or Space skips; Escape returns to Story Mode |
 
-```powershell
+## Project layout
+
+```text
+godot/            Godot project (autoloads, scenes, scripts, tests, export presets, addons)
+godot/content/    symlinks to the content folders below
+songs/ data/ assets/ scripts/ config/ mods/   shipped content
+tools/            Python content tools
+src/ include/ CMakeLists.txt                  C++ reference implementation (Windows)
+```
+
+Settings, enabled-mod state, edited charts and the log are stored in Godot's user data folder, not in the repository. See [Building](docs/BUILDING.md#user-data).
+
+## Documentation
+
+- [Building, testing and exporting](docs/BUILDING.md)
+- [Chart format and chart editor](docs/CHART_FORMAT.md)
+- [Content import](docs/CONTENT_IMPORT.md)
+- [Lua scripting and mods](docs/SCRIPTING.md)
+- [Stage placement](docs/STAGE_PLACEMENT.md)
+- [Nene and the attached speaker](docs/NENE_SPEAKER.md)
+
+## Python tools
+
+```sh
 python -m pip install -r requirements-tools.txt
 python tools/validate_content.py
 ```
 
-Some audio import helpers also require FFmpeg; it is not needed to play the included demo.
+The Psych importer and the audio and cutscene converters also need FFmpeg; playing the demo does not.
 
-## Controls and content
+## Legacy C++ implementation
 
-Use the arrow keys to navigate menus, Enter to select, Escape to go back. Lane bindings can be changed in Options. Enter pauses during a song; `7` opens the chart editor.
-
-- [Chart format](docs/CHART_FORMAT.md)
-- [Content import](docs/CONTENT_IMPORT.md)
-- [Lua scripting](docs/SCRIPTING.md)
-- [Stage placement](docs/STAGE_PLACEMENT.md)
-
-The current rendering/audio/video backend uses Windows APIs. macOS, Linux, Android and iOS would require platform backends and build work; they are not supported by this release.
+`src/`, `include/` and `CMakeLists.txt` hold a C++20 Win32 implementation of the same game with an embedded Lua 5.4.8. It builds on Windows only and is kept as a reference. See [Building](docs/BUILDING.md#c-reference-build-windows).
 
 ## Licensing
 
-Original engine code is covered by [LICENSE](LICENSE). The original demo content is dedicated under CC0; see [demo notice](licenses/DEMO.txt). Lua and toolchain notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `licenses/`.
+The engine code is covered by [LICENSE](LICENSE). The Neon Steps demo (song, chart, stage and `assets/demo/` graphics) is dedicated under CC0; see [licenses/DEMO.txt](licenses/DEMO.txt). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `licenses/`.
 
-Imported media retains its authors' rights. Owning a copy does not automatically grant redistribution rights. Keep imported songs, assets, mods, private saves and credentials out of public commits. The ignore rules exclude common local imports and build products; review every commit before uploading.
+Jave Engine is an independent project, not affiliated with The Funkin' Crew, Psych Engine or V-Slice. Imported media, including anything under `assets/imported/`, keeps its authors' rights. Owning a copy does not grant redistribution rights. The ignore rules exclude most imported songs, charts, stages, art and videos, but they do not cover everything: review every commit and every export before publishing (exports pack all local content; see [Building](docs/BUILDING.md#export)).

@@ -1,4 +1,4 @@
-"""Make Ogg Vorbis copies of song WAVs for mobile builds of the Godot engine.
+"""Make Ogg Vorbis copies of song WAVs for mobile builds.
 
 Every songs/*/Inst.wav and every .wav named by a song.json "audio" field (in the content root and its mods)
 gets a sibling .ogg. The WAVs and manifests are left alone; mobile builds prefer the .ogg when it exists.

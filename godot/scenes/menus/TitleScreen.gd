@@ -10,7 +10,7 @@ const OPTIONS_INDEX := 3
 const ITEM_TOP := 0.075
 const ITEM_SPACING := 0.138
 const ITEM_HIT_WIDTH := 0.6
-const FOOTER_TEXT := "Jave Engine 0.1     UP / DOWN: SELECT     ENTER: CONFIRM"
+const FOOTER_TEXT := "Jave Engine %s     UP / DOWN: SELECT     ENTER: CONFIRM"
 
 var _labels: Array[FunkinLabel] = []
 var _buttons: Array[AnimatedSprite2D] = []
@@ -32,7 +32,7 @@ func _build() -> void:
 		_labels.append(label)
 		_button_assets.append(_load_button(index))
 		_buttons.append(_make_button_sprite(_button_assets[index]))
-	Ui.footer(self, FOOTER_TEXT, 38.0, 15, 25.0)
+	Ui.footer(self, FOOTER_TEXT % Ui.version(), 38.0, 15, 25.0)
 	_selection_changed()
 
 

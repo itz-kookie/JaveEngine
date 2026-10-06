@@ -1,7 +1,8 @@
 """Import user-supplied Psych Engine songs into Jave Engine.
 
-Normal-difficulty player notes are converted to jave-chart-v1. Instrumental and
-voice stems are mixed into one Windows-native ADPCM WAV using ffmpeg. Unsupported source JSON is
+Normal-difficulty charts (player and opponent notes) are converted to jave-chart-v1.
+Instrumental and voice stems are mixed into one Microsoft ADPCM WAV using ffmpeg;
+the engine decodes ADPCM itself on every platform. Unsupported source JSON is
 preserved under migration/source-unconverted and listed in the report.
 """
 
@@ -586,7 +587,7 @@ for record in records:
 available_ids = {record["songId"] for record in records}
 for week in weeks:
     week["songs"] = [song_id for song_id in week["songs"] if song_id in available_ids]
-(args.jave_root / "data" / "weeks.json").write_text(json.dumps({"format": "jave-weeks-v1", "weeks": weeks}, indent=2) + "\n", encoding="utf-8")
+(args.jave_root / "data" / "weeks.imported.json").write_text(json.dumps({"format": "jave-weeks-v1", "weeks": weeks}, indent=2) + "\n", encoding="utf-8")
 
 
 def run_job(job):
@@ -607,7 +608,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as 
         except Exception as exc:
             errors.append((job[0], f"audio conversion failed: {exc}"))
 
-# Preserve non-normal Psych JSON that Jave v0.1 does not execute.
+# Preserve non-normal Psych JSON that Jave does not execute.
 unconverted_root = args.jave_root / "migration" / "source-unconverted"
 for chart_dir in sorted(path for path in chart_root.iterdir() if path.is_dir()):
     extras = [path for path in chart_dir.glob("*.json") if path.name.lower() != f"{chart_dir.name.lower()}.json"]
@@ -660,7 +661,7 @@ report += [f"- `{song_id}` — {reason}" for song_id, reason in errors] or ["- N
 report += [
     "", "## Preserved but not executed", "",
     "Easy/Hard charts, Psych events, preload data, and auxiliary chart JSON are under",
-    "`migration/source-unconverted/`. Jave Engine v0.1 does not execute Psych event data.",
+    "`migration/source-unconverted/`. Jave Engine does not execute Psych event data.",
     "", "## Manual review", "",
     "Verify sync and ownership for charts using custom note/event behavior. Imported audio",
     "and charts remain subject to their original rights; this package does not grant permission",

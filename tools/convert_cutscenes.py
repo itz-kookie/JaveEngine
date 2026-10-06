@@ -1,4 +1,4 @@
-"""Convert cutscene videos listed in data/cutscenes.json to Theora .ogv for the Godot build.
+"""Convert cutscene videos listed in data/cutscenes.json to Theora .ogv, the format the engine plays.
 
 Each "before"/"after" video gets a sibling .ogv and the manifest entry is rewritten to point at it.
 Re-running skips videos whose .ogv already exists.

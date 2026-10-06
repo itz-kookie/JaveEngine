@@ -52,7 +52,14 @@ func setup(scroll_down: bool, speed: float) -> void:
 
 
 static func note_image_path(kind: String, lane: int) -> String:
-	return Paths.content("assets/imported/notes").path_join("%s_%s.png" % [kind, LANE_NAMES[clampi(lane, 0, 3)]])
+	return pick_note_image(Paths.content("assets/imported/notes"), Paths.content("assets/demo/notes"), kind, lane)
+
+
+## Imported note art when present, otherwise the demo arrows. Chosen per file, so a partial import still draws every piece.
+static func pick_note_image(imported_dir: String, demo_dir: String, kind: String, lane: int) -> String:
+	var file_name := "%s_%s.png" % [kind, LANE_NAMES[clampi(lane, 0, 3)]]
+	var imported := imported_dir.path_join(file_name)
+	return imported if FileAccess.file_exists(imported) else demo_dir.path_join(file_name)
 
 
 static func _lane_textures(kind: String) -> Array[Texture2D]:

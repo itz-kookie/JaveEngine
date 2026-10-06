@@ -1,8 +1,6 @@
-# Nene and the large A-Bot speaker
+# Nene and the attached speaker
 
-Nene's Sparrow atlas uses `rotated="true"` for packed frames. The importer rotates those crops counterclockwise before restoring their original frame offsets. Her `danceLeft` and `danceRight` index sequences are imported separately; Jave alternates them on successive beats without cycling through unrelated atlas poses.
-
-The large speaker is a separate character-attached prop at `assets/imported/characters/nene-large-speaker/`. Its `animation.json` describes 16 baked frames at 24 FPS. Nene's `animation.json` links it through:
+Any character can carry a prop drawn beneath it, declared in its `animation.json`. The Weekend 1 importer uses this for Nene sitting on the A-Bot speaker.
 
 ```json
 "speaker": {
@@ -11,15 +9,22 @@ The large speaker is a separate character-attached prop at `assets/imported/char
 }
 ```
 
-`Engine.cpp` draws the attached speaker first, then the seated character, using one common scale and a shared stage floor. The attachment follows camera movement and appears wherever the Nene character is used, including Darnell, Lit Up, 2Hot and Blazin. Other characters are unchanged.
+- `assetPath`: the prop's character folder, relative to the character's folder. Only its `idle` pose is used.
+- `overlap`: how many source pixels of the prop's top the character overlaps (clamped to the prop's height).
 
-## Rebuild from the user's local files
+The character and prop are scaled together as one box (prop below, character lifted by the prop's height minus `overlap`) and placed at the role's anchor (see [Stage placement](STAGE_PLACEMENT.md)). The prop is drawn behind the character and moves with the camera. Its `idle` animation restarts on every beat at its own `fps`, so it pulses with the song. The prop appears wherever that character is used; other characters are unaffected.
 
-```powershell
-python tools/import_psych_library.py "C:/path/to/PsychEngine" . --characters-only --character nene
-python tools/import_nene_speaker.py "C:/path/to/PsychEngine" .
+## Nene's frames
+
+Nene's Sparrow atlas packs some frames with `rotated="true"`; the importer rotates those crops back before restoring their frame offsets. Her `danceLeft` and `danceRight` animations are imported as the `idle` and `danceRight` poses, and the engine alternates them on successive beats.
+
+## Rebuilding from local files
+
+```sh
+python tools/import_psych_library.py /path/to/PsychEngine . --characters-only --character nene
+python tools/import_nene_speaker.py /path/to/PsychEngine .
 ```
 
-The speaker importer composes the supplied Adobe Animate system atlas using nested symbols, keyframe durations, mirroring and affine transforms. It adds the supplied stereo background, visualization pieces and eyes. Speaker cones and display pulse on the song beat; the display is decorative, not a real-time audio-frequency analyser. The screen and eyes use fixed placement tuned for this atlas; custom replacement atlases may need placement adjustments in the importer.
+`import_nene_speaker.py` bakes the Adobe Animate A-Bot system atlas (nested symbols, keyframe durations, mirroring and affine transforms) together with the stereo background, visualiser bars and eyes into `assets/imported/characters/nene-large-speaker/` (16 frames at 24 FPS for the standard atlas), then adds the `speaker` entry to Nene's `animation.json`. The visualiser is baked into the frames and does not follow the audio. Screen and eye positions are fixed for this atlas; a different atlas may need adjustments in the script.
 
-No placeholder art is used. These are user-supplied assets and retain their original rights. Original source files are not modified.
+These files are made from the user's own copy of the game, keep their authors' rights, and are gitignored. Source files are not modified.

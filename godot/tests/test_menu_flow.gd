@@ -30,6 +30,7 @@ func _run() -> void:
 	await _check_song_end_and_results()
 	_check_grades()
 	await _check_empty_content()
+	await _check_story_weeks()
 	_main.queue_free()
 	# Let the audio server release stopped playbacks before quitting.
 	await create_timer(0.2).timeout
@@ -135,6 +136,40 @@ func _check_empty_content() -> void:
 	for list: String in saved:
 		content.get(list).assign(saved[list])
 	_press(KEY_ESCAPE)
+	_expect_screen("TITLE")
+
+
+## A week whose songs are all missing must not start or crash; the demo week plays.
+func _check_story_weeks() -> void:
+	var content := root.get_node("/root/Content")
+	var weeks: Array = content.get("weeks")
+	var demo_listed := false
+	for week: WeekMeta in weeks:
+		demo_listed = demo_listed or week.id == "demo"
+		var installed := false
+		for song_id in week.song_ids:
+			installed = installed or content.call("find_song", song_id) != null
+		_check(installed, "listed week %s has an installed song" % week.id)
+	_check(demo_listed, "the shipped demo week is listed")
+	var saved := weeks.duplicate()
+	var demo := WeekMeta.from_json({"id": "demo", "name": "Demo Week", "songs": ["neon-steps"]})
+	weeks.assign([WeekMeta.from_json({"id": "gone", "name": "Gone", "songs": ["no-such-song"]}), demo])
+	_main.call("switch_screen", _main.get("Screen")["STORY"])
+	await process_frame
+	_press(KEY_ENTER)
+	await process_frame
+	_expect_screen("STORY")
+	_press(KEY_DOWN)
+	_press(KEY_ENTER)
+	await process_frame
+	_expect_screen("PLAY")
+	await _wait_until_playing(_main.call("current_play"))
+	_press(KEY_ESCAPE)
+	await process_frame
+	_expect_screen("STORY")
+	weeks.assign(saved)
+	_press(KEY_ESCAPE)
+	await process_frame
 	_expect_screen("TITLE")
 
 

@@ -3,11 +3,11 @@ extends Node
 signal accent_changed(color: Color)
 
 const ENGINE_NAME := "Jave Engine"
-## The original engine clamped every frame's dt to this before handing it to on_update.
+## Upper bound on the dt passed to on_update, so a long frame cannot jump scripts ahead.
 const MAX_UPDATE_SECONDS := 0.05
 
 ## Defines the jave_* globals as Lua functions so mods see the same types and the same
-## argument errors (luaL_checkstring/luaL_checkinteger/lua_toboolean) as the C API did.
+## argument errors as luaL_checkstring/luaL_checkinteger/lua_toboolean give in the Lua C API.
 ## Returns the function that runs chunks and hooks under pcall, giving lua_pcall's error text.
 const PRELUDE := """
 local host = ...
@@ -89,7 +89,7 @@ func _ready() -> void:
 
 func reset() -> void:
 	_lua = LuaState.new()
-	# Only Lua's standard libraries, as luaL_openlibs gave mods; the Godot APIs would replace print and add globals.
+	# Only Lua's standard libraries; the Godot APIs would replace print and add globals.
 	_lua.open_libraries(LuaState.LUA_ALL_LIBS)
 	var host := _lua.create_table({
 		"engine_name": ENGINE_NAME,
@@ -176,7 +176,7 @@ func _host_set_player_flip(flip: bool) -> void:
 
 
 ## A LuaError comes from a failed load or from an error the dispatcher could not catch (a raising
-## __index on _G); the traceback the addon appends to it is dropped, as luaL_dofile gave none.
+## __index on _G); the traceback the addon appends to it is dropped so the log keeps one line per error.
 static func _error_text(error: Variant) -> String:
 	if not error is LuaError:
 		return str(error)

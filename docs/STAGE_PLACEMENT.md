@@ -1,31 +1,81 @@
-# Per-stage character placement
+# Stage placement
 
-Stage layouts live in `data/stages/<stage>.json`, or a mod's own `data/stages/` folder. The active package's stage file overrides the stage positions and camera settings copied into individual song manifests. This repository includes only the original Neon demo stage.
+A song's `stage` field selects `data/stages/<stage>.json` in the same package (the repository root, or the mod folder for a mod's songs). The stage file is re-read every time a song starts or restarts, so **Restart Song** in the pause menu applies edits without restarting the game.
 
-The `layout` section maps the original stage coordinates onto Jave's baked background image. Example:
+## Stage file
 
 ```json
-"layout": {
-  "width": 1280,
-  "height": 720,
-  "positionScale": 0.5,
-  "placements": {
-    "player": { "anchor": [1020, 590], "sourceAnchor": [770, 100], "scale": 0.95 },
-    "opponent": { "anchor": [270, 580], "sourceAnchor": [100, 100], "scale": 0.9 },
-    "girlfriend": { "anchor": [640, 590], "sourceAnchor": [400, 130], "scale": 0.85 }
+{
+  "boyfriend": [770, 100],
+  "opponent": [100, 100],
+  "girlfriend": [400, 130],
+  "cameraBoyfriend": [0, 0],
+  "cameraOpponent": [0, 0],
+  "defaultZoom": 0.9,
+  "cameraSpeed": 1,
+  "hideGirlfriend": false,
+  "layout": {
+    "revision": 1,
+    "width": 1280,
+    "height": 720,
+    "positionScale": 0.5,
+    "placements": {
+      "player": { "anchor": [1020, 590], "sourceAnchor": [770, 100], "scale": 0.95 },
+      "opponent": { "anchor": [270, 580], "sourceAnchor": [100, 100], "scale": 0.9 },
+      "girlfriend": { "anchor": [640, 590], "sourceAnchor": [400, 130], "scale": 0.85 }
+    }
   }
 }
 ```
 
-- `anchor`: horizontal center and floor/feet position in the reference image. Increasing X moves right; increasing Y moves down.
-- `scale`: stage-specific multiplier on that character's source scale, still bounded to fit the screen.
-- `sourceAnchor`: source coordinate corresponding to the presentation anchor; normally leave it unchanged.
-- Editing the top-level `boyfriend`, `opponent` or `girlfriend` coordinates also moves that role. The change from `sourceAnchor`, multiplied by `positionScale`, is added to its presentation anchor.
+Every field is optional. Values in the stage file override the same values in `song.json`.
 
-Coordinates scale with the window and use the same camera transform as the background. Nene and A-Bot share the girlfriend anchor; hidden girlfriends do not affect other roles. Moving or replacing one character never re-spaces the other characters.
+- `boyfriend`, `opponent`, `girlfriend`: source positions of each role (Psych-style stage coordinates). The song.json equivalents are `boyfriendPosition`, `opponentPosition`, `girlfriendPosition`.
+- `cameraBoyfriend`, `cameraOpponent`: camera offsets used when a `focus` event targets that side.
+- `defaultZoom`: base zoom; `cameraSpeed`: how fast the camera eases to its target.
+- `hideGirlfriend`: hide the girlfriend role.
+- `layout.revision`: written to the log at song start, to confirm which layout was used.
 
-Stage files are reloaded when starting or restarting a song. After editing a layout, select Restart Song to apply it; no complete engine restart is required. New stages without a layout use a stable direct source-coordinate fallback rather than min/max character normalization. For reliable alignment with a custom baked image, provide its own layout.
+## Layout
 
-The window title is `Jave Engine`. The log records the selected stage file and its layout revision for every song start.
+`layout` places characters on the stage's background image (`stageImage` in `song.json`), which is scaled to fit the 1280x720 stage and aligned to its bottom edge.
 
-Import-tool presets are tuned for baked static backgrounds, not pixel-identical recreations of other engines' world cameras. Animated stage layers and source-specific stage scripts require additional implementation.
+- `width`, `height`: size of the reference image the anchors are measured in (default 1280x720). Anchors scale from it to the stage.
+- `placements.<role>` for `player`, `opponent`, `girlfriend`:
+  - `anchor`: horizontal centre and floor (feet) position. Larger X moves right; larger Y moves down.
+  - `sourceAnchor`: the source position that corresponds to `anchor`. When set, the difference between the role's source position and `sourceAnchor`, multiplied by `positionScale` (default 0.5), is added to `anchor`. Editing `boyfriend`/`opponent`/`girlfriend` then nudges that role.
+  - `scale`: multiplies the character's own `scale`. The result is still limited so the character fits the screen.
+- Without an `anchor`, a role is placed directly from its source position (centre X `170 + x × 0.9`, floor Y `535 + y × 0.25` in reference coordinates). Provide a layout for reliable alignment with a custom image.
+
+Each role is placed independently; moving, hiding or replacing one character never moves the others. Characters use the same camera transform as the background.
+
+## Character folders
+
+`playerVisual`, `opponentVisual` and `girlfriendVisual` in `song.json` name a folder:
+
+```text
+<character>/
+  animation.json
+  idle/frame_0000.png ...
+  left/  down/  up/  right/
+  danceRight/        optional
+```
+
+Each pose is a folder of `frame_*.png` files (played in name order) or a single `<pose>.png`. `animation.json`:
+
+```json
+{
+  "scale": 1,
+  "flipX": false,
+  "idle": { "width": 220, "height": 310, "fps": 24, "loop": true, "frames": 15 },
+  "left": { "width": 220, "height": 310, "fps": 24, "loop": false }
+}
+```
+
+- `scale`: character size multiplier (combined with the placement `scale`).
+- `flipX`: the art faces the other way. The player role is mirrored relative to the other roles, and `flipX` inverts that; Lua's `jave_set_player_flip` mirrors the player again.
+- Per pose: `width`, `height` (layout box; default to the idle size, 420x500 if missing), `fps` (default 24, 1–120), `loop` (default true for `idle` only).
+- If `danceRight` has `"frames"` greater than 0, idle alternates between `idle` and `danceRight` on successive beats.
+- `speaker`: attaches a prop below the character; see [Nene and the attached speaker](NENE_SPEAKER.md).
+
+When the opponent and girlfriend use the same folder, the frames are loaded once and shared by both roles; set `hideGirlfriend` to show only the opponent.

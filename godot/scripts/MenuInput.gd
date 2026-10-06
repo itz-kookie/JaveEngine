@@ -1,4 +1,4 @@
-## Key tests for menu navigation, matching the original engine's key choices.
+## Key tests for menu navigation.
 class_name MenuInput
 extends RefCounted
 

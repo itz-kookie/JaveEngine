@@ -23,6 +23,7 @@ __pycache__/
 /assets/imported/characters/
 /assets/imported/icons/
 /assets/imported/menus/
+/assets/imported/notes/
 /assets/imported/stages/
 /songs/*
 !/songs/neon-steps/
@@ -30,5 +31,8 @@ __pycache__/
 !/data/charts/neon-steps.json
 /data/stages/*
 !/data/stages/neon.json
+/data/weeks.imported.json
+/data/cutscenes.json
 /mods/*
 !/mods/example-mod/
+/PSYCH_IMPORT_REPORT.md

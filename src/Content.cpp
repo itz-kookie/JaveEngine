@@ -131,8 +131,8 @@ void ContentLibrary::scan() {
         return a.title < b.title;
     });
 
-    const auto scanWeeks = [&](const std::filesystem::path& packageRoot) {
-        const auto weekFile = packageRoot / "data" / "weeks.json";
+    // Within one package the first week with an id wins; weeks with none of their songs installed are hidden.
+    const auto scanWeeks = [&](const std::filesystem::path& weekFile, std::size_t packageStart) {
         if (!std::filesystem::exists(weekFile)) return;
         try {
             const Json json = Json::fromFile(weekFile);
@@ -144,12 +144,18 @@ void ContentLibrary::scan() {
                 for (const Json& song : item["songs"].asArray()) week.songIds.push_back(song.asString());
                 const auto& color = item["color"].asArray();
                 if (color.size() == 3) for (std::size_t i = 0; i < 3; ++i) week.color[i] = std::clamp(color[i].asInt(week.color[i]), 0, 255);
-                if (!week.id.empty() && !week.songIds.empty()) weeks_.push_back(std::move(week));
+                if (week.id.empty() || week.songIds.empty()) continue;
+                const bool taken = std::any_of(weeks_.begin() + static_cast<std::ptrdiff_t>(packageStart), weeks_.end(),
+                                               [&](const Week& other) { return other.id == week.id; });
+                const bool playable = std::any_of(week.songIds.begin(), week.songIds.end(),
+                                                  [&](const std::string& id) { return findSong(id) != nullptr; });
+                if (!taken && playable) weeks_.push_back(std::move(week));
             }
         } catch (...) {}
     };
-    scanWeeks(root_);
-    for (const ModInfo& mod : mods_) if (mod.enabled) scanWeeks(mod.root);
+    scanWeeks(root_ / "data" / "weeks.imported.json", 0);
+    scanWeeks(root_ / "data" / "weeks.json", 0);
+    for (const ModInfo& mod : mods_) if (mod.enabled) scanWeeks(mod.root / "data" / "weeks.json", weeks_.size());
 }
 
 const Song* ContentLibrary::findSong(std::string_view id) const {
