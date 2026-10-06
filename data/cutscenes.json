@@ -1,0 +1,11 @@
+{
+  "darnell": {
+    "before": "assets/videos/darnellCutscene.ogv"
+  },
+  "2hot": {
+    "after": "assets/videos/2hotCutscene.ogv"
+  },
+  "blazin": {
+    "after": "assets/videos/blazinCutscene.ogv"
+  }
+}

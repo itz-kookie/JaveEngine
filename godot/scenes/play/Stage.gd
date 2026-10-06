@@ -12,7 +12,7 @@ const STAGE_CENTER := STAGE_SIZE * 0.5
 
 
 func setup(song: SongMeta, assets: SongAssets) -> void:
-	_show_background(TextureCache.get_texture(song.stage_image))
+	_show_background(assets.stage_texture if assets.stage_texture != null else TextureCache.get_texture(song.stage_image))
 	var layout := song.stage_layout
 	_girlfriend.visible = assets.girlfriend != null and not song.hide_girlfriend
 	if _girlfriend.visible:

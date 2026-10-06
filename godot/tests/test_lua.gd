@@ -106,6 +106,9 @@ func _test_load_order_and_errors() -> void:
 	_write(mod_root.path_join("scripts/z.lua"), "jave_log('mod z')")
 	_write(mod_root.path_join("scripts/a.lua"), "jave_log('mod a')")
 	var content := root.get_node("/root/Content")
+	# The player's saved mod toggles must not decide which mods this test sees.
+	var saved_overrides: String = content.get("mod_overrides_path")
+	content.set("mod_overrides_path", TEMP_DIR.path_join("mods.json"))
 	content.call("scan")
 	var paths: PackedStringArray = _host_script.script_paths(content_root, _host.call("enabled_mod_roots"))
 	var user_mod_scripts := mod_root.path_join("scripts")
@@ -133,6 +136,7 @@ func _test_load_order_and_errors() -> void:
 	_remove_dir(mod_root)
 	if created_user_mods:
 		DirAccess.remove_absolute(USER_MODS)
+	content.set("mod_overrides_path", saved_overrides)
 	content.call("scan")
 
 

@@ -7,9 +7,15 @@ const BAND_COLOR := Color8(249, 202, 89)
 const EMPTY_COLOR := Color8(255, 150, 170)
 const TRACK_SPACING := 35.0
 
+const IDLE_POSE: Array[StringName] = [&"idle"]
+
 var _tracks: Control
 var _previews: Array[AnimatedSprite2D] = []
+var _preview_boxes: Array[Rect2] = []
 var _assets: Dictionary[String, CharacterAsset] = {}
+var _loading: Dictionary[String, int] = {}
+var _assets_in_flight: Dictionary[String, CharacterAsset] = {}
+var _preview_time := 0.0
 
 
 func _build() -> void:
@@ -24,6 +30,7 @@ func _build() -> void:
 		sprite.centered = false
 		add_child(sprite)
 		_previews.append(sprite)
+		_preview_boxes.append(Rect2())
 	var names := PackedStringArray()
 	for week in Content.weeks:
 		names.append(week.name)
@@ -72,37 +79,84 @@ func _show_preview(song: SongMeta) -> void:
 		return
 	var screen := Ui.SCREEN_SIZE
 	if song.opponent_character != song.girlfriend_character:
-		_place_preview(_previews[0], song.opponent_visual, screen.x * 0.22, screen.y * 0.30, false)
+		_place_preview(0, song.opponent_visual, screen.x * 0.22, screen.y * 0.30, false)
 	if not song.hide_girlfriend:
-		_place_preview(_previews[1], song.girlfriend_visual, screen.x * 0.49, screen.y * 0.29, false)
-	_place_preview(_previews[2], song.player_visual, screen.x * 0.75, screen.y * 0.24, true)
+		_place_preview(1, song.girlfriend_visual, screen.x * 0.49, screen.y * 0.29, false)
+	_place_preview(2, song.player_visual, screen.x * 0.75, screen.y * 0.24, true)
 
 
-func _place_preview(sprite: AnimatedSprite2D, visual: String, center: float, height: float, is_player: bool) -> void:
+func _place_preview(slot: int, visual: String, center: float, height: float, is_player: bool) -> void:
 	var asset := _asset_for(visual)
-	if asset == null:
-		return
-	var texture := asset.frames.get_frame_texture(&"idle", 0) if asset.frames.get_frame_count(&"idle") > 0 else null
-	if texture == null:
+	if asset == null or asset.frames.get_frame_count(&"idle") == 0:
 		return
 	var screen := Ui.SCREEN_SIZE
-	var box := Rect2(center - screen.x * 0.12, 130.0 + screen.y * 0.34 - height, screen.x * 0.24, height)
-	var source := texture.get_size()
-	var fit := minf(box.size.x / source.x, box.size.y / source.y)
+	var sprite := _previews[slot]
+	_preview_boxes[slot] = Rect2(center - screen.x * 0.12, 130.0 + screen.y * 0.34 - height, screen.x * 0.24, height)
 	sprite.sprite_frames = asset.frames
+	sprite.animation = &"idle"
 	sprite.flip_h = JsonRead.boolean(asset.meta, "flipX", false) != is_player
+	sprite.visible = true
+	_set_preview_frame(slot)
+
+
+## The idle restarts every second, as the original menu drew it from a one-second clock; each frame is fitted to the box on its own.
+func _set_preview_frame(slot: int) -> void:
+	var sprite := _previews[slot]
+	var count := sprite.sprite_frames.get_frame_count(&"idle")
+	var index := int(_preview_time * sprite.sprite_frames.get_animation_speed(&"idle"))
+	sprite.frame = index % count if sprite.sprite_frames.get_animation_loop(&"idle") else mini(index, count - 1)
+	var source := sprite.sprite_frames.get_frame_texture(&"idle", sprite.frame).get_size()
+	var box := _preview_boxes[slot]
+	var fit := minf(box.size.x / source.x, box.size.y / source.y)
 	sprite.scale = Vector2(fit, fit)
 	sprite.position = Vector2(box.position.x + (box.size.x - source.x * fit) * 0.5, box.end.y - source.y * fit)
-	sprite.visible = true
-	sprite.play(&"idle")
 
 
+func _process(delta: float) -> void:
+	super(delta)
+	_preview_time = fmod(_preview_time + delta, 1.0)
+	for slot in _previews.size():
+		if _previews[slot].visible:
+			_set_preview_frame(slot)
+	if not _loading.is_empty():
+		_collect_loaded()
+
+
+## Null until the idle frames have loaded on a worker; the preview is redrawn when they arrive.
 func _asset_for(visual: String) -> CharacterAsset:
 	if visual.is_empty():
 		return null
-	if not _assets.has(visual):
-		var asset := CharacterAsset.new(visual)
-		asset.load_from_disk()
-		asset.build_frames()
-		_assets[visual] = asset
-	return _assets[visual]
+	if _assets.has(visual):
+		return _assets[visual]
+	if not _loading.has(visual):
+		var asset := CharacterAsset.new(visual, IDLE_POSE)
+		_assets_in_flight[visual] = asset
+		_loading[visual] = WorkerThreadPool.add_task(asset.load_from_disk, false, "Load story preview")
+	return null
+
+
+func _collect_loaded() -> void:
+	var arrived := false
+	for visual: String in _loading.keys():
+		if not WorkerThreadPool.is_task_completed(_loading[visual]):
+			continue
+		_finish(visual)
+		arrived = true
+	if arrived and not Content.weeks.is_empty():
+		_show_preview(Content.find_song(Content.weeks[selection].song_ids[0]))
+
+
+func _finish(visual: String) -> void:
+	WorkerThreadPool.wait_for_task_completion(_loading[visual])
+	_loading.erase(visual)
+	var asset: CharacterAsset = _assets_in_flight[visual]
+	_assets_in_flight.erase(visual)
+	asset.build_frames()
+	_assets[visual] = asset
+
+
+func _exit_tree() -> void:
+	for visual: String in _loading.keys():
+		WorkerThreadPool.wait_for_task_completion(_loading[visual])
+	_loading.clear()
+	_assets_in_flight.clear()

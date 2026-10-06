@@ -83,7 +83,7 @@ func load_audio(song_path: String) -> AudioStream:
 		return null
 	match path.get_extension().to_lower():
 		"wav":
-			return AudioStreamWAV.load_from_file(path)
+			return WavFile.load_stream(path)
 		"ogg":
 			return AudioStreamOggVorbis.load_from_file(path)
 		"mp3":

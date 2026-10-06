@@ -33,7 +33,7 @@ static func animation_loops(meta: Dictionary, pose_name: String) -> bool:
 	return JsonRead.boolean(JsonRead.object(meta, pose_name), "loop", pose_name == "idle")
 
 
-static func build(meta: Dictionary, paths_by_pose: Dictionary, images_by_path: Dictionary) -> SpriteFrames:
+static func build(meta: Dictionary, paths_by_pose: Dictionary, textures_by_path: Dictionary) -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
 	for pose_name in POSE_NAMES:
@@ -42,7 +42,7 @@ static func build(meta: Dictionary, paths_by_pose: Dictionary, images_by_path: D
 		frames.set_animation_speed(pose_name, animation_fps(meta, pose_name))
 		frames.set_animation_loop(pose_name, animation_loops(meta, pose_name))
 		for path in paths:
-			var image: Image = images_by_path.get(path)
-			if image != null:
-				frames.add_frame(pose_name, TextureCache.from_image(path, image))
+			var texture: Texture2D = textures_by_path.get(path)
+			if texture != null:
+				frames.add_frame(pose_name, texture)
 	return frames

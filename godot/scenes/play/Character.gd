@@ -18,6 +18,9 @@ var _speaker_fps := 24.0
 var _speaker_loops := true
 var _speaker_frame_count := 0
 var _current_slot := -1
+var _speaker_rect := Rect2()
+var _body_size := Vector2.ZERO
+var _speaker_size := Vector2.ZERO
 
 
 func setup(asset: CharacterAsset, layout: Dictionary, role: String, source_position: Vector2, is_player: bool) -> void:
@@ -76,8 +79,8 @@ func _layout_speaker(size: Vector2, box: Rect2) -> void:
 	_speaker_fps = SpriteFramesBuilder.animation_fps(speaker.meta, idle_name)
 	_speaker_loops = SpriteFramesBuilder.animation_loops(speaker.meta, idle_name)
 	_speaker_frame_count = speaker.frames.get_frame_count(idle_name)
-	var rect := Rect2(Vector2(box.position.x + (box.size.x - size.x) * 0.5, box.end.y - size.y), size)
-	_fit(_speaker, rect)
+	_speaker_rect = Rect2(Vector2(box.position.x + (box.size.x - size.x) * 0.5, box.end.y - size.y), size)
+	_speaker_size = _fit(_speaker, _speaker_rect)
 
 
 func show_pose(pose: int, animation_seconds: float, song_ms: float, beat_ms: float, extra_flip: bool) -> void:
@@ -90,17 +93,23 @@ func show_pose(pose: int, animation_seconds: float, song_ms: float, beat_ms: flo
 	var count := _pose_frame_counts[slot]
 	_body.visible = count > 0
 	if count > 0:
-		_body.frame = _frame_index(animation_seconds, _pose_fps[slot], _pose_loops[slot], count)
+		var frame := _frame_index(animation_seconds, _pose_fps[slot], _pose_loops[slot], count)
+		if frame != _body.frame:
+			_body.frame = frame
+			_body_size = _refit_if_resized(_body, _pose_rects[slot], _body_size)
 	_body.flip_h = _base_flip != extra_flip
 	if _speaker_frame_count > 0:
-		_speaker.frame = _frame_index(fmod(song_ms, beat_ms) / 1000.0, _speaker_fps, _speaker_loops, _speaker_frame_count)
+		var speaker_frame := _frame_index(fmod(song_ms, beat_ms) / 1000.0, _speaker_fps, _speaker_loops, _speaker_frame_count)
+		if speaker_frame != _speaker.frame:
+			_speaker.frame = speaker_frame
+			_speaker_size = _refit_if_resized(_speaker, _speaker_rect, _speaker_size)
 
 
 func _switch_slot(slot: int) -> void:
 	_current_slot = slot
 	_body.animation = SpriteFramesBuilder.POSE_NAMES[slot]
 	if _pose_frame_counts[slot] > 0:
-		_fit(_body, _pose_rects[slot])
+		_body_size = _fit(_body, _pose_rects[slot])
 
 
 static func _frame_index(seconds: float, fps: float, loops: bool, count: int) -> int:
@@ -108,7 +117,18 @@ static func _frame_index(seconds: float, fps: float, loops: bool, count: int) ->
 	return frame % count if loops else mini(frame, count - 1)
 
 
-static func _fit(sprite: AnimatedSprite2D, rect: Rect2) -> void:
-	var texture := sprite.sprite_frames.get_frame_texture(sprite.animation, 0)
-	if texture != null:
-		SpritePool.place_fitted(sprite, texture.get_size(), rect)
+## Returns the texture size the sprite was fitted for.
+static func _fit(sprite: AnimatedSprite2D, rect: Rect2) -> Vector2:
+	var texture := sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
+	if texture == null:
+		return Vector2.ZERO
+	SpritePool.place_fitted(sprite, texture.get_size(), rect)
+	return texture.get_size()
+
+
+## Each frame is fitted into its pose's box on its own, so frames of differing sizes stay anchored.
+static func _refit_if_resized(sprite: AnimatedSprite2D, rect: Rect2, fitted_size: Vector2) -> Vector2:
+	var texture := sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
+	if texture == null or texture.get_size() == fitted_size:
+		return fitted_size
+	return _fit(sprite, rect)
