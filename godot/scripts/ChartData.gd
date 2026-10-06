@@ -110,6 +110,38 @@ func add_note(time: float, lane: int, length: float, player: bool) -> void:
 	hold_release_ms.append(0.0)
 
 
+func remove_note(index: int) -> void:
+	times.remove_at(index)
+	lanes.remove_at(index)
+	lengths.remove_at(index)
+	players.remove_at(index)
+	flags.remove_at(index)
+	hold_release_ms.remove_at(index)
+
+
+## Independent copy: packed arrays are shared by reference, so each one is duplicated.
+func copy() -> ChartData:
+	var other := ChartData.new()
+	other.song_id = song_id
+	other.difficulty = difficulty
+	other.bpm = bpm
+	other.offset_ms = offset_ms
+	other.duration_ms = duration_ms
+	other.times = times.duplicate()
+	other.lengths = lengths.duplicate()
+	other.lanes = lanes.duplicate()
+	other.players = players.duplicate()
+	other.flags = flags.duplicate()
+	other.hold_release_ms = hold_release_ms.duplicate()
+	other.camera_times = camera_times.duplicate()
+	other.camera_types = camera_types.duplicate()
+	other.camera_targets = camera_targets.duplicate()
+	other.camera_x = camera_x.duplicate()
+	other.camera_y = camera_y.duplicate()
+	other.camera_amounts = camera_amounts.duplicate()
+	return other
+
+
 func note_count() -> int:
 	return times.size()
 

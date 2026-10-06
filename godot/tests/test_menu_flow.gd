@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Drives Main with key events: Title -> Freeplay -> song -> pause/botplay/restart -> Results -> back.
+## Drives Main with key events: Title -> Freeplay -> song -> chart editor -> pause/botplay/restart -> Results -> back.
 const LOAD_TIMEOUT_FRAMES := 600
 const FINISH_TIMEOUT_FRAMES := 600
 
@@ -40,9 +40,7 @@ func _check_pause_and_botplay() -> void:
 	var play: Node = _main.call("current_play")
 	await _wait_until_playing(play)
 	var conductor := root.get_node("/root/Conductor")
-	_press(KEY_7)
-	_expect_screen("PLAY")
-	_check(not play.get("gameplay").botplay, "key 7 does not toggle botplay")
+	await _check_chart_editor(play, conductor)
 	_press(KEY_ENTER)
 	_expect_screen("PAUSED")
 	_check(conductor.get("paused"), "conductor paused")
@@ -60,6 +58,25 @@ func _check_pause_and_botplay() -> void:
 	_check(not conductor.get("paused"), "conductor resumed")
 	await _wait_frames(10)
 	_check(conductor.get("song_time_ms") > frozen_ms, "song clock advances after resume")
+
+
+func _check_chart_editor(play: Node, conductor: Node) -> void:
+	var chart: ChartData = play.get("gameplay").chart
+	_press(KEY_7)
+	_expect_screen("CHART_EDITOR")
+	_check(conductor.get("paused"), "conductor paused in the editor")
+	_check(play.process_mode == Node.PROCESS_MODE_DISABLED, "play scene frozen in the editor")
+	_check(not play.get("gameplay").botplay, "key 7 does not toggle botplay")
+	_press(KEY_SPACE)
+	var editor: Node = _main.call("current_editor")
+	_check(editor != null and editor.get("state").dirty, "space adds a note in the editor")
+	await process_frame
+	_press(KEY_ESCAPE)
+	_expect_screen("PLAY")
+	_check(_main.call("current_editor") == null, "editor closed")
+	_check(play.get("gameplay").chart == chart, "unsaved edits leave the playing chart alone")
+	_check(not conductor.get("paused"), "conductor resumed after the editor")
+	_check(play.process_mode == Node.PROCESS_MODE_INHERIT, "play scene runs after the editor")
 
 
 func _check_restart_keeps_botplay() -> void:

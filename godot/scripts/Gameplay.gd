@@ -70,6 +70,13 @@ func _init(song_chart: ChartData, song_meta: SongMeta) -> void:
 	song_end_ms = chart.duration_ms
 
 
+## Swaps in an edited chart; note indices change, so the cursors restart from the beginning.
+func replace_chart(edited: ChartData) -> void:
+	chart = edited
+	cursors = NoteCursors.new()
+	cursors.advance_unjudged(chart)
+
+
 func accuracy() -> float:
 	return accuracy_points / judged_count if judged_count > 0 else 1.0
 

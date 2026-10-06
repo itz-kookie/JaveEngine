@@ -19,6 +19,9 @@ script = ExtResource("2_backdrop")
 layer = 10
 script = ExtResource("3_pause")
 
+[node name="EditorLayer" type="CanvasLayer" parent="."]
+layer = 5
+
 [node name="FpsLayer" type="CanvasLayer" parent="."]
 layer = 100
 

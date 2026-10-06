@@ -54,7 +54,13 @@ func reload_stage(song: SongMeta) -> void:
 
 
 func load_chart(song: SongMeta) -> ChartData:
-	return ChartData.load_file(song.chart_path, song.id, song.bpm)
+	return ChartData.load_file(chart_path_for(song), song.id, song.bpm)
+
+
+## A chart saved from the editor over shipped content wins over the original.
+func chart_path_for(song: SongMeta) -> String:
+	var override := Paths.user_mirror(song.chart_path)
+	return override if FileAccess.file_exists(override) else song.chart_path
 
 
 func load_audio(path: String) -> AudioStream:

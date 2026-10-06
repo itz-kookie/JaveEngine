@@ -1,8 +1,9 @@
 extends Node
 
-enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS }
+enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS, CHART_EDITOR }
 
 const PLAY_SCENE: PackedScene = preload("res://scenes/play/PlayScene.tscn")
+const CHART_EDITOR_SCENE: PackedScene = preload("res://scenes/editor/ChartEditor.tscn")
 const TITLE_DESTINATIONS: Array[Screen] = [Screen.STORY, Screen.FREEPLAY, Screen.MODS, Screen.OPTIONS, Screen.CREDITS]
 
 var screen := Screen.TITLE
@@ -13,11 +14,13 @@ var last_result: Gameplay
 
 var _menu: MenuScreen
 var _play: PlayScene
+var _editor: ChartEditor
 var _default_botplay := false
 var _shown_fps := -1
 
 @onready var _backdrop: MenuBackdrop = $Backdrop
 @onready var _pause: PauseMenu = $PauseMenu
+@onready var _editor_layer: CanvasLayer = $EditorLayer
 @onready var _fps_label: Label = $FpsLayer/Fps
 
 
@@ -36,6 +39,10 @@ func screen_name() -> String:
 
 func current_play() -> PlayScene:
 	return _play
+
+
+func current_editor() -> ChartEditor:
+	return _editor
 
 
 func _process(_delta: float) -> void:
@@ -110,6 +117,28 @@ func restart_song() -> void:
 	start_song(song, botplay)
 
 
+func open_chart_editor() -> void:
+	Conductor.pause()
+	_play.process_mode = Node.PROCESS_MODE_DISABLED
+	_editor = CHART_EDITOR_SCENE.instantiate()
+	_editor.setup(_play.song, _play.gameplay.chart, _play.gameplay.song_time_ms)
+	_editor.saved.connect(_play.gameplay.replace_chart)
+	_editor.close_requested.connect(close_chart_editor)
+	_editor_layer.add_child(_editor)
+	screen = Screen.CHART_EDITOR
+	Log.info("Chart editor opened: " + _play.song.id)
+
+
+## Unsaved edits are dropped; a save has already handed its chart to the running song.
+func close_chart_editor() -> void:
+	Log.info("Chart editor closed %s%s" % ["without saving: " if _editor.state.dirty else "after save: ", _play.song.id])
+	_close_editor()
+	LaneInput.discard_presses()
+	_play.process_mode = Node.PROCESS_MODE_INHERIT
+	Conductor.resume()
+	screen = Screen.PLAY
+
+
 func toggle_botplay() -> void:
 	var gameplay := _play.gameplay
 	gameplay.botplay = not gameplay.botplay
@@ -122,7 +151,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if screen != Screen.PLAY:
 		return
 	var key := MenuInput.key_of(event)
-	if MenuInput.is_confirm(key) and _play.is_playing():
+	if (key == KEY_7 or key == KEY_KP_7) and _play.is_playing():
+		get_viewport().set_input_as_handled()
+		open_chart_editor()
+	elif MenuInput.is_confirm(key) and _play.is_playing():
 		get_viewport().set_input_as_handled()
 		pause_song()
 	elif MenuInput.is_back(key):
@@ -238,8 +270,17 @@ func _close_menu() -> void:
 ## Detaches immediately so the old song's exit stops the clock before a new song can start it.
 func _close_play() -> void:
 	_pause.close()
+	_close_editor()
 	if _play == null:
 		return
 	remove_child(_play)
 	_play.queue_free()
 	_play = null
+
+
+func _close_editor() -> void:
+	if _editor == null:
+		return
+	_editor_layer.remove_child(_editor)
+	_editor.queue_free()
+	_editor = null

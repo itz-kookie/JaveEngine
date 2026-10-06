@@ -17,3 +17,8 @@ func content(relative: String) -> String:
 
 func user(relative: String) -> String:
 	return USER_ROOT.path_join(relative)
+
+
+## Writable twin of a read-only res:// path (res://x -> user://x); user:// paths are returned unchanged.
+func user_mirror(path: String) -> String:
+	return USER_ROOT.path_join(path.trim_prefix("res://")) if path.begins_with("res://") else path
