@@ -5,7 +5,6 @@ signal lane_released(lane: int, song_ms: float)
 
 const LANE_COUNT := 4
 const LANE_ACTIONS: Array[StringName] = [&"lane_0", &"lane_1", &"lane_2", &"lane_3"]
-const TOGGLE_BOTPLAY := &"toggle_botplay"
 const BUFFER_SIZE := 32
 
 var held_mask := 0
@@ -20,7 +19,6 @@ func _ready() -> void:
 	_press_lanes.resize(BUFFER_SIZE)
 	_press_times.resize(BUFFER_SIZE)
 	bind_lanes()
-	_bind_action(TOGGLE_BOTPLAY, [KEY_7, KEY_KP_7])
 
 
 func bind_lanes() -> void:
@@ -45,8 +43,12 @@ func consume_press() -> void:
 
 
 func clear() -> void:
-	_read = _write
+	discard_presses()
 	held_mask = 0
+
+
+func discard_presses() -> void:
+	_read = _write
 
 
 func _unhandled_input(event: InputEvent) -> void:

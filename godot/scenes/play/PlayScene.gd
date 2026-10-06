@@ -39,11 +39,13 @@ func _process(delta: float) -> void:
 			_step(delta)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if state == State.PLAYING and event.is_action_pressed(LaneInput.TOGGLE_BOTPLAY):
-		gameplay.botplay = not gameplay.botplay
-		Log.info("Botplay " + ("enabled" if gameplay.botplay else "disabled"))
-		get_viewport().set_input_as_handled()
+func is_playing() -> bool:
+	return state == State.PLAYING
+
+
+func refresh() -> void:
+	if state == State.PLAYING:
+		_render()
 
 
 func _start() -> void:
@@ -52,7 +54,7 @@ func _start() -> void:
 	_strumline.setup(Settings.downscroll, Settings.note_speed)
 	_hud.setup(song)
 	Log.info("Stage layout applied: %s revision=%d from %s" % [song.stage, JsonRead.integer(song.stage_layout, "revision"), song.stage_config_path])
-	if not Conductor.start(_assets.stream, Settings.master_volume):
+	if not Conductor.start(_assets.stream):
 		_fail("Could not play song audio")
 		return
 	gameplay.song_end_ms = Conductor.duration_ms if Conductor.duration_ms > 0.0 else gameplay.chart.duration_ms

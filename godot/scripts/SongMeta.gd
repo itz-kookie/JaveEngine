@@ -7,6 +7,7 @@ var artist := ""
 var description := ""
 var license := ""
 var bpm := 120.0
+var preview_ms := 0.0
 var order := 100000
 var week_id := ""
 var stage := "stage"
@@ -42,6 +43,7 @@ static func from_json(json: Dictionary, package_root: String, folder_name: Strin
 	song.description = JsonRead.string(json, "description")
 	song.license = JsonRead.string(json, "license", "Unspecified")
 	song.bpm = JsonRead.number(json, "bpm", 120.0)
+	song.preview_ms = maxf(0.0, JsonRead.number(json, "previewMs"))
 	song.order = JsonRead.integer(json, "order", 100000)
 	song.week_id = JsonRead.string(json, "week")
 	song.stage = JsonRead.string(json, "stage", "stage")

@@ -18,12 +18,17 @@ var _last_update_usec := 0
 func _ready() -> void:
 	process_priority = -100
 	_ensure_music_bus()
+	apply_volume()
 	_player = AudioStreamPlayer.new()
 	_player.bus = MUSIC_BUS
 	add_child(_player)
 
 
-func start(stream: AudioStream, volume: float) -> bool:
+func apply_volume() -> void:
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(MUSIC_BUS), linear_to_db(Settings.master_volume))
+
+
+func start(stream: AudioStream) -> bool:
 	stop()
 	_estimate = 0.0
 	song_time_ms = Settings.audio_offset_ms
@@ -33,12 +38,12 @@ func start(stream: AudioStream, volume: float) -> bool:
 	if stream == null:
 		return false
 	_player.stream = stream
-	_player.volume_db = linear_to_db(volume)
 	_player.play()
 	return true
 
 
 func stop() -> void:
+	_player.stream_paused = false
 	_player.stop()
 	_player.stream = null
 	running = false
