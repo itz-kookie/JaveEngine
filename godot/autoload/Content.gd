@@ -1,5 +1,7 @@
 extends Node
 
+const CUTSCENE_MANIFEST := "data/cutscenes.json"
+
 var songs: Array[SongMeta] = []
 var weeks: Array[WeekMeta] = []
 var mods: Array[ModInfo] = []
@@ -59,8 +61,20 @@ func load_chart(song: SongMeta) -> ChartData:
 
 ## A chart saved from the editor over shipped content wins over the original.
 func chart_path_for(song: SongMeta) -> String:
-	var override := Paths.user_mirror(song.chart_path)
-	return override if FileAccess.file_exists(override) else song.chart_path
+	return _prefer_user_mirror(song.chart_path)
+
+
+## Empty when the song has no cutscene on that side or the manifest entry is rejected.
+func cutscene_path(song_id: String, outro: bool) -> String:
+	var manifest: Variant = JsonRead.load_file(_prefer_user_mirror(Paths.content(CUTSCENE_MANIFEST)))
+	var relative := CutsceneManifest.relative_path(manifest, song_id, outro)
+	if relative.is_empty():
+		return ""
+	var error := CutsceneManifest.rejection(relative)
+	if not error.is_empty():
+		Log.info("Cutscene manifest error: " + error)
+		return ""
+	return _prefer_user_mirror(Paths.content(relative))
 
 
 func load_audio(path: String) -> AudioStream:
@@ -74,6 +88,11 @@ func load_audio(path: String) -> AudioStream:
 		"mp3":
 			return AudioStreamMP3.load_from_file(path)
 	return null
+
+
+func _prefer_user_mirror(path: String) -> String:
+	var override := Paths.user_mirror(path)
+	return override if FileAccess.file_exists(override) else path
 
 
 func _enabled_package_roots() -> PackedStringArray:

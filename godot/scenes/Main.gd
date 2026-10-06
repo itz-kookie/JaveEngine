@@ -4,6 +4,7 @@ enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESU
 
 const PLAY_SCENE: PackedScene = preload("res://scenes/play/PlayScene.tscn")
 const CHART_EDITOR_SCENE: PackedScene = preload("res://scenes/editor/ChartEditor.tscn")
+const CUTSCENE_SCENE: PackedScene = preload("res://scenes/cutscene/Cutscene.tscn")
 const TITLE_DESTINATIONS: Array[Screen] = [Screen.STORY, Screen.FREEPLAY, Screen.MODS, Screen.OPTIONS, Screen.CREDITS]
 
 var screen := Screen.TITLE
@@ -15,6 +16,9 @@ var last_result: Gameplay
 var _menu: MenuScreen
 var _play: PlayScene
 var _editor: ChartEditor
+var _cutscene: Cutscene
+var _cutscene_song: SongMeta
+var _cutscene_outro := false
 var _default_botplay := false
 var _shown_fps := -1
 
@@ -45,6 +49,10 @@ func current_editor() -> ChartEditor:
 	return _editor
 
 
+func current_cutscene() -> Cutscene:
+	return _cutscene
+
+
 func _process(delta: float) -> void:
 	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE:
 		ModHost.update(delta)
@@ -58,6 +66,7 @@ func _process(delta: float) -> void:
 func switch_screen(next: Screen) -> void:
 	_close_play()
 	_close_menu()
+	_close_cutscene()
 	screen = next
 	_menu = _create_menu(next)
 	_backdrop.visible = true
@@ -69,6 +78,7 @@ func switch_screen(next: Screen) -> void:
 func start_song(song: SongMeta, botplay := _default_botplay) -> void:
 	_close_play()
 	_close_menu()
+	_close_cutscene()
 	_backdrop.visible = false
 	var play: PlayScene = PLAY_SCENE.instantiate()
 	play.song = song
@@ -91,7 +101,12 @@ func start_week(week: WeekMeta) -> void:
 		return
 	playing_story = true
 	story_position = 0
-	start_song(story_queue[0])
+	start_story_song(story_queue[0])
+
+
+func start_story_song(song: SongMeta) -> void:
+	if not _start_cutscene(song, false):
+		start_song(song)
 
 
 func pause_song() -> void:
@@ -181,9 +196,54 @@ func _is_current_play(play_id: int) -> bool:
 
 
 func _on_song_finished(result: Gameplay, play_id: int) -> void:
-	if _is_current_play(play_id):
-		last_result = result
+	if not _is_current_play(play_id):
+		return
+	last_result = result
+	if not _start_cutscene(_play.song, true):
 		switch_screen(Screen.RESULTS)
+
+
+## Cutscenes only play in story mode; false when the song has none or its video cannot be opened.
+func _start_cutscene(song: SongMeta, outro: bool) -> bool:
+	if not playing_story:
+		return false
+	var path := Content.cutscene_path(song.id, outro)
+	if path.is_empty():
+		return false
+	Conductor.stop()
+	_close_play()
+	_close_menu()
+	_close_cutscene()
+	_backdrop.visible = false
+	var cutscene: Cutscene = CUTSCENE_SCENE.instantiate()
+	add_child(cutscene)
+	if not cutscene.open(path):
+		Log.info("Cutscene unavailable: " + path)
+		remove_child(cutscene)
+		cutscene.queue_free()
+		return false
+	cutscene.finished.connect(_on_cutscene_finished.bind(cutscene.get_instance_id()), CONNECT_DEFERRED)
+	_cutscene = cutscene
+	_cutscene_song = song
+	_cutscene_outro = outro
+	screen = Screen.CUTSCENE
+	Log.info("Cutscene opened: %s %s %s" % [cutscene.file_name, "after" if outro else "before", song.id])
+	return true
+
+
+func _on_cutscene_finished(reason: StringName, cutscene_id: int) -> void:
+	if _cutscene == null or _cutscene.get_instance_id() != cutscene_id:
+		return
+	_close_cutscene()
+	# Drop lane presses made during the video so they cannot be judged in the next song.
+	LaneInput.clear()
+	if reason == &"cancel":
+		_end_story()
+		switch_screen(Screen.STORY)
+	elif _cutscene_outro:
+		switch_screen(Screen.RESULTS)
+	else:
+		start_song(_cutscene_song)
 
 
 func _on_song_failed(_message: String, play_id: int) -> void:
@@ -194,7 +254,7 @@ func _on_song_failed(_message: String, play_id: int) -> void:
 func _continue_from_results() -> void:
 	if playing_story and story_position + 1 < story_queue.size():
 		story_position += 1
-		start_song(story_queue[story_position])
+		start_story_song(story_queue[story_position])
 	else:
 		_leave_song()
 
@@ -278,6 +338,14 @@ func _close_play() -> void:
 	remove_child(_play)
 	_play.queue_free()
 	_play = null
+
+
+func _close_cutscene() -> void:
+	if _cutscene == null:
+		return
+	remove_child(_cutscene)
+	_cutscene.queue_free()
+	_cutscene = null
 
 
 func _close_editor() -> void:
