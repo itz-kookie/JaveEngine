@@ -38,8 +38,11 @@ def validate_audio(path: Path) -> None:
     elif suffix == ".ogg":
         if header[:4] != b"OggS":
             raise ValueError(f"not a valid Ogg file: {path}")
+    elif suffix == ".mp3":
+        if header[:3] != b"ID3" and not (len(header) >= 2 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0):
+            raise ValueError(f"not a valid MP3 file: {path}")
     else:
-        raise ValueError(f"supported audio is WAV or Ogg Vorbis: {path}")
+        raise ValueError(f"supported audio is WAV, Ogg Vorbis or MP3: {path}")
 
 
 def validate(root: Path) -> dict[str, int]:

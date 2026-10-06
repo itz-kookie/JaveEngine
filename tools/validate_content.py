@@ -11,6 +11,10 @@ errors: list[str] = []
 warnings: list[str] = []
 
 
+def is_mp3_header(header: bytes) -> bool:
+    return header[:3] == b"ID3" or (len(header) >= 2 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0)
+
+
 def load(path: Path):
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -79,8 +83,8 @@ for manifest in sorted((ROOT / "songs").glob("*/song.json")):
         audio = audio.with_suffix(".ogg")
     if not audio.is_file():
         errors.append(f"missing audio: {audio.relative_to(ROOT)}")
-    elif audio.suffix.lower() not in (".wav", ".ogg"):
-        errors.append(f"{audio.relative_to(ROOT)}: supported audio is WAV or Ogg Vorbis")
+    elif audio.suffix.lower() not in (".wav", ".ogg", ".mp3"):
+        errors.append(f"{audio.relative_to(ROOT)}: supported audio is WAV, Ogg Vorbis or MP3")
     else:
         try:
             with audio.open("rb") as stream:
@@ -89,6 +93,8 @@ for manifest in sorted((ROOT / "songs").glob("*/song.json")):
                 raise ValueError("missing RIFF/WAVE header")
             if audio.suffix.lower() == ".ogg" and header[:4] != b"OggS":
                 raise ValueError("missing OggS header")
+            if audio.suffix.lower() == ".mp3" and not is_mp3_header(header):
+                raise ValueError("missing ID3 tag or MPEG frame sync")
         except Exception as exc:
             errors.append(f"{audio.relative_to(ROOT)}: invalid audio: {exc}")
     chart = load(chart_path) if chart_path.is_file() else None

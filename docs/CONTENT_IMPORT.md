@@ -56,6 +56,7 @@ Song audio is a single mixed file: vocals must be mixed into the instrumental. S
 
 - WAV: PCM, float, and Microsoft ADPCM (decoded by the engine).
 - Ogg Vorbis (`.ogg`).
+- MP3 (`.mp3`).
 
 When `audio` names a `.wav`, mobile builds play a sibling `.ogg` with the same name if it exists, and any build uses that `.ogg` when the WAV is missing. `python tools/convert_audio.py` creates those `.ogg` files; it needs an FFmpeg with `libvorbis` (see [Cutscenes](#cutscenes) for one that has it).
 

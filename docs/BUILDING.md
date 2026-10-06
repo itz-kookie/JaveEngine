@@ -93,7 +93,7 @@ Bluetooth headphones and many Android devices report output latency poorly. Adju
 ## Troubleshooting
 
 - **No songs appear:** confirm `godot/content/songs` resolves to the repository's `songs/` folder and that each song has `songs/<id>/song.json` with an existing chart.
-- **No audio:** check the `audio` path in `song.json` and that the file is WAV (PCM, float or Microsoft ADPCM) or Ogg Vorbis. Errors are written to `user://saves/jave.log`.
+- **No audio:** check the `audio` path in `song.json` and that the file is WAV (PCM, float or Microsoft ADPCM), Ogg Vorbis or MP3. Errors are written to `user://saves/jave.log`.
 - **A chart edit will not go away:** delete its file under `user://content/data/charts/`.
 
 ## C++ reference build (Windows)
