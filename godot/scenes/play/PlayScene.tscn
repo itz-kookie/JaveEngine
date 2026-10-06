@@ -1,0 +1,36 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scenes/play/PlayScene.gd" id="1_play"]
+[ext_resource type="PackedScene" path="res://scenes/play/Stage.tscn" id="2_stage"]
+[ext_resource type="Script" path="res://scenes/play/Strumline.gd" id="3_strumline"]
+[ext_resource type="PackedScene" path="res://scenes/play/HUD.tscn" id="4_hud"]
+
+[sub_resource type="Gradient" id="Gradient_backdrop"]
+colors = PackedColorArray(0.0196, 0.0235, 0.0471, 1, 0.0392, 0.0392, 0.0784, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_backdrop"]
+gradient = SubResource("Gradient_backdrop")
+width = 4
+height = 64
+fill_to = Vector2(0, 1)
+
+[node name="PlayScene" type="Node2D"]
+script = ExtResource("1_play")
+
+[node name="Backdrop" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Gradient" type="TextureRect" parent="Backdrop"]
+offset_right = 1280.0
+offset_bottom = 720.0
+texture = SubResource("GradientTexture2D_backdrop")
+expand_mode = 1
+
+[node name="Stage" parent="." instance=ExtResource("2_stage")]
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+
+[node name="Strumline" type="Node2D" parent="Overlay"]
+script = ExtResource("3_strumline")
+
+[node name="HUD" parent="Overlay" instance=ExtResource("4_hud")]

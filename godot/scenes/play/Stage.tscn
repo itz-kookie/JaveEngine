@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/play/Stage.gd" id="1_stage"]
+[ext_resource type="PackedScene" path="res://scenes/play/Character.tscn" id="2_character"]
+
+[node name="Stage" type="Node2D"]
+script = ExtResource("1_stage")
+
+[node name="Background" type="Sprite2D" parent="."]
+
+[node name="Girlfriend" parent="." instance=ExtResource("2_character")]
+
+[node name="Opponent" parent="." instance=ExtResource("2_character")]
+
+[node name="Player" parent="." instance=ExtResource("2_character")]
+
+[node name="Camera" type="Camera2D" parent="."]
+position = Vector2(640, 360)
