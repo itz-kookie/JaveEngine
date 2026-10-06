@@ -1,1 +1,2 @@
 .godot/
+!addons/lua-gdextension/build/*.dll

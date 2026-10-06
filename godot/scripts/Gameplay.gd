@@ -60,7 +60,6 @@ var camera_zoom_base := 0.9
 var camera_zoom_pulse := 0.0
 
 var botplay := false
-var player_flip := false
 
 
 func _init(song_chart: ChartData, song_meta: SongMeta) -> void:

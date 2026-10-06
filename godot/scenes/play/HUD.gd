@@ -7,8 +7,6 @@ const HEALTH_FRAME_COLOR := Color8(245, 245, 250)
 const HEALTH_LOSS_COLOR := Color8(220, 50, 70)
 const HEALTH_GAIN_COLOR := Color8(45, 205, 95)
 
-@export var accent := Color8(95, 227, 255)
-
 @onready var _opponent_icon: TextureRect = $OpponentIcon
 @onready var _player_icon: TextureRect = $PlayerIcon
 @onready var _accuracy: Label = $Accuracy
@@ -28,6 +26,11 @@ var _shown_rating := ""
 func setup(song: SongMeta) -> void:
 	_show_icon(_opponent_icon, TextureCache.get_texture(song.opponent_icon))
 	_show_icon(_player_icon, TextureCache.get_texture(song.player_icon))
+	_apply_accent(Ui.accent)
+	ModHost.accent_changed.connect(_apply_accent)
+
+
+func _apply_accent(accent: Color) -> void:
 	var panel := _rounded_box(Color8(20, 23, 52), 12)
 	panel.border_color = accent
 	panel.set_border_width_all(2)

@@ -48,7 +48,7 @@ func update_view(play: Gameplay) -> void:
 		_opponent.show_pose(play.opponent_pose, opponent_seconds, song_ms, beat_ms, false)
 	if _player.visible:
 		var player_seconds := idle_seconds if play.player_pose < 0 else (song_ms - play.player_animation_ms) / 1000.0
-		_player.show_pose(play.player_pose, player_seconds, song_ms, beat_ms, play.player_flip)
+		_player.show_pose(play.player_pose, player_seconds, song_ms, beat_ms, ModHost.player_flip)
 	_update_camera(play)
 
 

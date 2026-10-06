@@ -26,6 +26,7 @@ func _ready() -> void:
 		return
 	gameplay = Gameplay.new(chart, song)
 	gameplay.botplay = botplay
+	gameplay.note_judged.connect(ModHost.note_hit)
 	_assets = SongAssets.new(song)
 	_assets.start_loading()
 
@@ -59,6 +60,8 @@ func _start() -> void:
 		return
 	gameplay.song_end_ms = Conductor.duration_ms if Conductor.duration_ms > 0.0 else gameplay.chart.duration_ms
 	Log.info("Song timeline: %s audioEndMs=%f chartEndMs=%f" % [song.id, gameplay.song_end_ms, gameplay.chart.duration_ms])
+	ModHost.player_flip = false
+	ModHost.song_start(song.id)
 	LaneInput.clear()
 	state = State.PLAYING
 	_render()

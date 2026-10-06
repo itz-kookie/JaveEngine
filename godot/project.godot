@@ -12,6 +12,7 @@ Paths="*res://autoload/Paths.gd"
 Log="*res://autoload/Log.gd"
 Settings="*res://autoload/Settings.gd"
 Content="*res://autoload/Content.gd"
+ModHost="*res://autoload/ModHost.gd"
 Conductor="*res://autoload/Conductor.gd"
 LaneInput="*res://autoload/LaneInput.gd"
 

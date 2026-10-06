@@ -1,6 +1,6 @@
 extends Node
 
-enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS, CHART_EDITOR }
+enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS, CHART_EDITOR, CUTSCENE }
 
 const PLAY_SCENE: PackedScene = preload("res://scenes/play/PlayScene.tscn")
 const CHART_EDITOR_SCENE: PackedScene = preload("res://scenes/editor/ChartEditor.tscn")
@@ -45,7 +45,9 @@ func current_editor() -> ChartEditor:
 	return _editor
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE:
+		ModHost.update(delta)
 	_fps_label.visible = Settings.show_fps
 	var fps := int(Engine.get_frames_per_second())
 	if _fps_label.visible and fps != _shown_fps:

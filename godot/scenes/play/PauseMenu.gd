@@ -20,6 +20,8 @@ const HINT_COLOR := Color8(137, 149, 184)
 var selection := 0
 
 var _time := 0.0
+var _root: Control
+var _built_accent: Color
 var _title: Label
 var _rows: Array[Control] = []
 var _labels: Array[Label] = []
@@ -32,6 +34,8 @@ func _ready() -> void:
 
 
 func open(song_title: String, botplay: bool) -> void:
+	if _built_accent != Ui.accent:
+		_rebuild()
 	_title.text = song_title
 	set_botplay(botplay)
 	selection = 0
@@ -97,11 +101,21 @@ func _show_selection() -> void:
 			label.remove_theme_font_override(&"font")
 
 
+func _rebuild() -> void:
+	_root.free()
+	_rows.clear()
+	_labels.clear()
+	_highlights.clear()
+	_build()
+
+
 func _build() -> void:
+	_built_accent = Ui.accent
 	var root := Control.new()
 	root.size = Ui.SCREEN_SIZE
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	_root = root
 	var origin := (Ui.SCREEN_SIZE - PANEL_SIZE) * 0.5
 	Ui.box(root, Rect2(origin.x - 8.0, origin.y + 10.0, PANEL_SIZE.x + 16.0, PANEL_SIZE.y + 8.0), SHADOW_COLOR, 34)
 	Ui.box(root, Rect2(origin, PANEL_SIZE), PANEL_COLOR, 30, BORDER_BASE.lerp(Ui.accent, 0.62), 3)

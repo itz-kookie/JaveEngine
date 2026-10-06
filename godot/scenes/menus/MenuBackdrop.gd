@@ -30,6 +30,7 @@ func _ready() -> void:
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_art)
 	_cache_colors()
+	ModHost.accent_changed.connect(_on_accent_changed)
 
 
 ## art_file names an image under assets/imported/menus; empty selects the dark style.
@@ -67,6 +68,11 @@ func _draw() -> void:
 		draw_circle(Vector2(x + radius, y + radius), radius, _circle_colors[index])
 	var line_y := Ui.SCREEN_SIZE.y * 0.82 + sin(_time * 0.8) * 8.0
 	draw_rect(Rect2(0.0, line_y, Ui.SCREEN_SIZE.x, 2.0), _line_color)
+
+
+func _on_accent_changed(_accent: Color) -> void:
+	_cache_colors()
+	queue_redraw()
 
 
 func _cache_colors() -> void:
