@@ -26,7 +26,7 @@ def required_file(root: Path, relative: str, label: str) -> Path:
 
 
 def validate_audio(path: Path) -> None:
-    if not path.is_file() and path.suffix.lower() == ".wav" and path.with_suffix(".ogg").is_file():
+    if path.suffix.lower() == ".wav" and path.with_suffix(".ogg").is_file():
         path = path.with_suffix(".ogg")
     if not path.is_file():
         raise ValueError(f"missing audio: {path}")

@@ -1,12 +1,22 @@
+"""Synthesize the Neon Steps demo track and encode it to Ogg Vorbis (songs/neon-steps/Inst.ogg).
+
+Usage: python tools/generate_neon_steps.py [output.ogg] [--ffmpeg PATH]
+"""
+import argparse
 import math
 import random
+import shutil
 import struct
+import sys
+import tempfile
 import wave
 from pathlib import Path
 
+from convert_audio import convert, ffmpeg_problem
+
 RATE = 44100
 DURATION = 26.0
-OUT = Path(__file__).resolve().parents[1] / "songs" / "neon-steps" / "Inst.wav"
+OUT = Path(__file__).resolve().parents[1] / "songs" / "neon-steps" / "Inst.ogg"
 
 random.seed(0x4A415645)
 chords = [
@@ -68,20 +78,41 @@ def synth(t):
     return mono * (1.0 - pan), mono * (1.0 + pan)
 
 
-OUT.parent.mkdir(parents=True, exist_ok=True)
-with wave.open(str(OUT), "wb") as wav:
-    wav.setnchannels(2)
-    wav.setsampwidth(2)
-    wav.setframerate(RATE)
-    block = bytearray()
-    for sample in range(int(RATE * DURATION)):
-        left, right = synth(sample / RATE)
-        left = math.tanh(left * 1.25) * 0.82
-        right = math.tanh(right * 1.25) * 0.82
-        block += struct.pack("<hh", int(left * 32767), int(right * 32767))
-        if len(block) >= 262144:
-            wav.writeframesraw(block)
-            block.clear()
-    wav.writeframes(block)
+def write_wav(path):
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(2)
+        wav.setsampwidth(2)
+        wav.setframerate(RATE)
+        block = bytearray()
+        for sample in range(int(RATE * DURATION)):
+            left, right = synth(sample / RATE)
+            left = math.tanh(left * 1.25) * 0.82
+            right = math.tanh(right * 1.25) * 0.82
+            block += struct.pack("<hh", int(left * 32767), int(right * 32767))
+            if len(block) >= 262144:
+                wav.writeframesraw(block)
+                block.clear()
+        wav.writeframes(block)
 
-print(OUT)
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("output", type=Path, nargs="?", default=OUT, help="Ogg file to write (default: songs/neon-steps/Inst.ogg)")
+    parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"))
+    args = parser.parse_args()
+
+    problem = ffmpeg_problem(args.ffmpeg)
+    if problem:
+        sys.exit(f"error: {problem}")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as scratch:
+        source = Path(scratch) / "Inst.wav"
+        write_wav(source)
+        error = convert(args.ffmpeg, source, args.output)
+    if error:
+        sys.exit(f"error: {error}")
+    print(args.output)
+
+
+if __name__ == "__main__":
+    main()

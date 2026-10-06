@@ -1,13 +1,13 @@
 # Jave Engine
 
-A four-lane rhythm game built with Godot 4.7 and GDScript, with Lua 5.4 mod scripting. It runs on macOS, Windows and Linux, and has Android and iOS export presets. Content is plain folders of JSON, PNG, WAV/Ogg and Lua files, in the style of FNF engines.
+A four-lane rhythm game built with Godot 4.7 and GDScript, with Lua 5.4 mod scripting. It runs on macOS, Windows and Linux, and has Android and iOS export presets. Content is plain folders of JSON, PNG, Ogg and Lua files, in the style of FNF engines.
 
 ## Features
 
 - Title, Story Mode, Freeplay, Mods, Options, Credits and Results screens.
 - JSON songs and charts with player/opponent notes, holds, judgements, scoring, health and camera events.
 - Animated PNG characters, stage layouts, health icons and an optional speaker prop attached to a character.
-- WAV (PCM, float, Microsoft ADPCM), Ogg Vorbis and MP3 song audio; Ogg Theora cutscenes in Story Mode.
+- Ogg Vorbis song audio, with WAV (PCM, float, Microsoft ADPCM) and MP3 also accepted; Ogg Theora cutscenes in Story Mode.
 - Pause menu with Resume, Restart Song and Botplay.
 - In-song chart editor (press `7`).
 - Lua hooks and mod packages that can add songs, weeks, stages and scripts.

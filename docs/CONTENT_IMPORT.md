@@ -8,7 +8,7 @@ The repository root is the base package. The game sees it through `godot/content
 
 ```text
 songs/<song-id>/song.json     song manifest
-songs/<song-id>/Inst.wav      song audio (any path named by song.json)
+songs/<song-id>/Inst.ogg      song audio (any path named by song.json)
 data/charts/<song-id>.json    chart, see CHART_FORMAT.md
 data/stages/<stage>.json      stage camera and layout, see STAGE_PLACEMENT.md
 data/weeks.json               Story Mode weeks
@@ -30,7 +30,7 @@ mods/<mod-id>/                mod packages
   "bpm": 120,
   "previewMs": 2000,
   "order": 10,
-  "audio": "songs/my-song/Inst.wav",
+  "audio": "songs/my-song/Inst.ogg",
   "chart": "data/charts/my-song.json",
   "stage": "neon",
   "stageImage": "assets/my-stage.png",
@@ -52,13 +52,24 @@ mods/<mod-id>/                mod packages
 
 ## Audio
 
-Song audio is a single mixed file: vocals must be mixed into the instrumental. Supported formats:
+Song audio is a single mixed file: vocals must be mixed into the instrumental. Ogg Vorbis (`.ogg`) is the recommended format; the demo song and the Psych importer use it. The engine also accepts:
 
 - WAV: PCM, float, and Microsoft ADPCM (decoded by the engine).
-- Ogg Vorbis (`.ogg`).
 - MP3 (`.mp3`).
 
-When `audio` names a `.wav`, mobile builds play a sibling `.ogg` with the same name if it exists, and any build uses that `.ogg` when the WAV is missing. `python tools/convert_audio.py` creates those `.ogg` files; it needs an FFmpeg with `libvorbis` (see [Cutscenes](#cutscenes) for one that has it).
+When `audio` names a `.wav` and a sibling `.ogg` with the same name exists, the engine plays the `.ogg`; otherwise it plays the WAV.
+
+`python tools/convert_audio.py` converts song WAVs to Ogg Vorbis (quality 6). It writes a sibling `.ogg` for every `songs/*/Inst.wav` and every `.wav` named by a `song.json`, in the content root and in each mod, and skips WAVs that already have one:
+
+- `--update-manifests` rewrites each `song.json` `audio` field from the `.wav` to its `.ogg`.
+- `--delete-wav` deletes each converted WAV that no `song.json` names; use it with `--update-manifests` to leave only Ogg files. WAVs in a folder whose `song.json` cannot be read are kept.
+- `--dry-run` prints what would change.
+
+It needs an FFmpeg with `libvorbis` (see [Cutscenes](#cutscenes) for one that has it):
+
+```sh
+python tools/convert_audio.py --update-manifests --delete-wav --ffmpeg /path/to/ffmpeg
+```
 
 ## Weeks
 
@@ -111,7 +122,7 @@ python tools/import_menu_art.py /path/to/PsychEngine .
 python tools/configure_stage_layouts.py
 ```
 
-- Instrumental and voice stems are mixed into one Microsoft ADPCM WAV per song (`songs/<id>/Song.wav`).
+- Instrumental and voice stems are mixed into one Ogg Vorbis file per song (`songs/<id>/Song.ogg`). `--ffmpeg` must name an FFmpeg with `libvorbis`.
 - Ownership follows `mustHitSection` for each section.
 - Unconverted JSON is kept under `migration/source-unconverted/` and summarised in `PSYCH_IMPORT_REPORT.md`.
 - `--characters-only [--character ID]` and `--notes-only` rebuild just those parts.

@@ -79,7 +79,7 @@ for manifest in sorted((ROOT / "songs").glob("*/song.json")):
                     errors.append(f"{manifest.relative_to(ROOT)}: missing {field} animation {animation}")
     audio = ROOT / song.get("audio", "")
     chart_path = ROOT / song.get("chart", "")
-    if not audio.is_file() and audio.suffix.lower() == ".wav" and audio.with_suffix(".ogg").is_file():
+    if audio.suffix.lower() == ".wav" and audio.with_suffix(".ogg").is_file():
         audio = audio.with_suffix(".ogg")
     if not audio.is_file():
         errors.append(f"missing audio: {audio.relative_to(ROOT)}")

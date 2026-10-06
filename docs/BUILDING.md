@@ -6,7 +6,7 @@ The game is the Godot 4.7 project in `godot/`. The last section covers the C++ r
 
 - Godot 4.7 (the project is tested with 4.7.1). No compile step is needed; the scripts are GDScript.
 - For exports: the matching export templates (**Editor > Manage Export Templates**).
-- For the Python tools: Python 3 and `pip install -r requirements-tools.txt` (Pillow). FFmpeg for the audio and cutscene converters and the importers.
+- For the Python tools: Python 3 and `pip install -r requirements-tools.txt` (Pillow). FFmpeg with `libvorbis` (and `libtheora` for cutscenes) for the audio and cutscene converters, the Psych importer and `tools/generate_neon_steps.py`.
 
 ## Project structure
 
@@ -67,7 +67,9 @@ mkdir -p build/godot/linux
 $GODOT --headless --path godot --export-release Linux build/godot/linux/JaveEngine.x86_64
 ```
 
-The `jave_content_export` plugin adds every file under `godot/content/` that matches the preset's include filter (`content/*.json, *.png, *.wav, *.ogg, *.lua, *.ogv`) and not its exclude filter (a local `content/config/settings.json` is never packed).
+The `jave_content_export` plugin adds every file under `godot/content/` that matches the preset's include filter (`content/*.json, *.png, *.wav, *.ogg, *.mp3, *.lua, *.ogv`) and not its exclude filter (a local `content/config/settings.json` is never packed).
+
+Song WAVs in the content folders are packed as they are and make builds large. Run `python tools/convert_audio.py --update-manifests --delete-wav` before exporting to convert them to Ogg Vorbis; see [Content import](CONTENT_IMPORT.md#audio).
 
 **The export packs everything present in the content folders, including locally imported and gitignored songs, art and videos.** An export made from a working copy with imported FNF or other third-party media contains that media. Export from a clean checkout, or remove the imported files first, before distributing a build.
 
@@ -78,7 +80,6 @@ Exported builds do not include `LICENSE`, `THIRD_PARTY_NOTICES.md` or `licenses/
 - Android SDK (build-tools and platform-tools) and JDK 17; set both paths in **Editor Settings > Export > Android**.
 - Debug builds use the editor's debug keystore. For release, create a keystore (`keytool -genkeypair -v -keystore jave.keystore -alias jave -keyalg RSA -validity 10000`) and fill `keystore/release*` in the Android preset locally. Do not commit keystores or passwords.
 - The preset targets arm64 only, uses the prebuilt template (no Gradle build), immersive landscape, package `com.javeengine.game` (placeholder), no permissions.
-- WAVs make a large APK. `python tools/convert_audio.py` writes a sibling `.ogg` (Vorbis q6) for each song WAV. Mobile builds play the `.ogg` when it exists, and any build falls back to it when the WAV is missing.
 
 ### iOS
 
@@ -93,7 +94,7 @@ Bluetooth headphones and many Android devices report output latency poorly. Adju
 ## Troubleshooting
 
 - **No songs appear:** confirm `godot/content/songs` resolves to the repository's `songs/` folder and that each song has `songs/<id>/song.json` with an existing chart.
-- **No audio:** check the `audio` path in `song.json` and that the file is WAV (PCM, float or Microsoft ADPCM), Ogg Vorbis or MP3. Errors are written to `user://saves/jave.log`.
+- **No audio:** check the `audio` path in `song.json` and that the file is Ogg Vorbis, WAV (PCM, float or Microsoft ADPCM) or MP3. Errors are written to `user://saves/jave.log`.
 - **A chart edit will not go away:** delete its file under `user://content/data/charts/`.
 
 ## C++ reference build (Windows)

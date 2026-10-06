@@ -1,16 +1,18 @@
-"""Make Ogg Vorbis copies of song WAVs for mobile builds.
+"""Convert song WAVs to Ogg Vorbis (q6), the recommended song format.
 
 Every songs/*/Inst.wav and every .wav named by a song.json "audio" field (in the content root and its mods)
-gets a sibling .ogg. The WAVs and manifests are left alone; mobile builds prefer the .ogg when it exists.
+gets a sibling .ogg. The engine plays that .ogg in place of a WAV the manifest names, so the WAVs and
+manifests may stay as they are. --update-manifests points each such "audio" field at its .ogg, and
+--delete-wav removes each converted WAV that no manifest names any more.
 Re-running skips WAVs whose .ogg already exists.
-Usage: python tools/convert_audio.py [content_root] [--dry-run] [--ffmpeg PATH]
+Usage: python tools/convert_audio.py [content_root] [--dry-run] [--update-manifests] [--delete-wav] [--ffmpeg PATH]
 """
 import argparse
 import json
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_ENCODERS = ("libvorbis",)
@@ -63,25 +65,28 @@ def package_roots(content_root):
         yield from sorted(path for path in mods.iterdir() if path.is_dir())
 
 
-def manifest_audio(package_root, manifest_path):
+def manifest_audio(manifest_path):
+    """(manifest, audio): manifest is None when unreadable, audio is "" unless it names a .wav."""
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         print(f"warning: {manifest_path}: {exc}")
-        return None
-    audio = manifest.get("audio") if isinstance(manifest, dict) else None
+        return None, ""
+    if not isinstance(manifest, dict):
+        print(f"warning: {manifest_path}: not a JSON object")
+        return None, ""
+    audio = manifest.get("audio")
     if not isinstance(audio, str) or not audio.lower().endswith(".wav"):
-        return None
-    problem = rejection(audio)
-    if problem:
-        print(f"warning: {manifest_path}: {problem}: {audio}")
-        return None
-    return package_root / audio.replace("\\", "/")
+        return manifest, ""
+    return manifest, audio
 
 
-def wav_sources(content_root):
-    """Sorted, de-duplicated WAVs to convert across the content root and its mods."""
+def scan(content_root):
+    """Sorted WAVs to convert, (manifest_path, manifest, audio, wav) for each usable manifest naming a .wav,
+    and the resolved WAVs that unreadable or rejected manifests may name, which are never deleted."""
     sources = set()
+    manifests = []
+    unsure = set()
     for package_root in package_roots(content_root):
         songs = package_root / "songs"
         if not songs.is_dir():
@@ -90,15 +95,34 @@ def wav_sources(content_root):
             inst = song_dir / "Inst.wav"
             if inst.is_file():
                 sources.add(inst)
-            manifest = song_dir / "song.json"
-            audio = manifest_audio(package_root, manifest) if manifest.is_file() else None
-            if audio is None:
+            manifest_path = song_dir / "song.json"
+            if not manifest_path.is_file():
                 continue
-            if audio.is_file():
-                sources.add(audio)
-            else:
-                print(f"warning: {manifest}: missing {audio}")
-    return sorted(sources)
+            manifest, audio = manifest_audio(manifest_path)
+            if manifest is None:
+                unsure.update(path.resolve() for path in song_dir.glob("*.wav"))
+                continue
+            if not audio:
+                continue
+            wav = package_root / audio.replace("\\", "/")
+            problem = rejection(audio)
+            if problem:
+                print(f"warning: {manifest_path}: {problem}: {audio}")
+                unsure.add(wav.resolve())
+                continue
+            manifests.append((manifest_path, manifest, audio, wav))
+            if wav.is_file():
+                sources.add(wav)
+            elif not wav.with_suffix(".ogg").is_file():
+                print(f"warning: {manifest_path}: missing {audio}")
+    return sorted(sources), manifests, unsure
+
+
+def write_manifest(path, manifest):
+    newline = "\r\n" if b"\r\n" in path.read_bytes() else "\n"
+    text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+    with path.open("w", encoding="utf-8", newline=newline) as stream:
+        stream.write(text)
 
 
 def main():
@@ -106,24 +130,32 @@ def main():
     parser.add_argument("content_root", type=Path, nargs="?", default=ROOT / "godot" / "content",
                         help="folder holding songs/ and mods/ (default: godot/content)")
     parser.add_argument("--dry-run", action="store_true", help="print what would change without writing anything")
+    parser.add_argument("--update-manifests", action="store_true",
+                        help="rewrite each song.json \"audio\" from .wav to .ogg once the .ogg exists")
+    parser.add_argument("--delete-wav", action="store_true",
+                        help="delete each converted WAV that no song.json names any more")
     parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"))
     args = parser.parse_args()
 
     if not args.content_root.is_dir():
         sys.exit(f"error: no content folder at {args.content_root}")
 
-    jobs = [(source, source.with_suffix(".ogg")) for source in wav_sources(args.content_root)]
+    sources, manifests, unsure = scan(args.content_root)
+    jobs = [(source, source.with_suffix(".ogg")) for source in sources]
     pending = [(source, target) for source, target in jobs if not target.is_file()]
     if pending and not args.dry_run:
         problem = ffmpeg_problem(args.ffmpeg)
         if problem:
             sys.exit(f"error: {problem}")
 
+    # In a dry run, a pending conversion counts as done so the later steps can be previewed.
+    ready = {target for source, target in jobs if target.is_file()}
     converted = failed = 0
     for source, target in pending:
         shown = source.relative_to(args.content_root)
         if args.dry_run:
             print(f"would convert {shown} -> {target.name}")
+            ready.add(target)
             converted += 1
             continue
         error = convert(args.ffmpeg, source, target)
@@ -132,10 +164,52 @@ def main():
             failed += 1
             continue
         print(f"converted {shown} -> {target.name}")
+        ready.add(target)
         converted += 1
 
+    still_named = set()
+    rewritten = 0
+    for manifest_path, manifest, audio, wav in manifests:
+        ogg = wav.with_suffix(".ogg")
+        if not args.update_manifests or not (ogg in ready or ogg.is_file()):
+            still_named.add(wav.resolve())
+            continue
+        new_audio = str(PurePosixPath(audio.replace("\\", "/")).with_suffix(".ogg"))
+        shown = manifest_path.relative_to(args.content_root)
+        if args.dry_run:
+            print(f"would rewrite {shown}: {audio} -> {new_audio}")
+        else:
+            manifest["audio"] = new_audio
+            write_manifest(manifest_path, manifest)
+            print(f"rewrote {shown}: {audio} -> {new_audio}")
+        rewritten += 1
+
+    deleted = 0
+    if args.delete_wav:
+        for source, target in jobs:
+            if target not in ready:
+                continue
+            shown = source.relative_to(args.content_root)
+            if source.resolve() in still_named:
+                print(f"keeping {shown}: a song.json still names it (add --update-manifests)")
+                continue
+            if source.resolve() in unsure:
+                print(f"keeping {shown}: a song.json that cannot be used may name it")
+                continue
+            if args.dry_run:
+                print(f"would delete {shown}")
+            else:
+                source.unlink()
+                print(f"deleted {shown}")
+            deleted += 1
+
     skipped = len(jobs) - len(pending)
-    print(f"done: {converted} {'to convert' if args.dry_run else 'converted'}, {skipped} already converted, {failed} failed")
+    if args.dry_run:
+        print(f"done: {converted} to convert, {skipped} already converted, would rewrite {rewritten} manifests, "
+              f"would delete {deleted} WAVs, {failed} failed")
+    else:
+        print(f"done: {converted} converted, {skipped} already converted, rewrote {rewritten} manifests, "
+              f"deleted {deleted} WAVs, {failed} failed")
     if failed:
         sys.exit(1)
 

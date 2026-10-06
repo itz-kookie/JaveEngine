@@ -1,9 +1,10 @@
 """Import user-supplied Psych Engine songs into Jave Engine.
 
 Normal-difficulty charts (player and opponent notes) are converted to jave-chart-v1.
-Instrumental and voice stems are mixed into one Microsoft ADPCM WAV using ffmpeg;
-the engine decodes ADPCM itself on every platform. Unsupported source JSON is
+Instrumental and voice stems are mixed into one Ogg Vorbis file per song
+(songs/<id>/Song.ogg) using an ffmpeg with libvorbis. Unsupported source JSON is
 preserved under migration/source-unconverted and listed in the report.
+Usage: python tools/import_psych_library.py PSYCH_ROOT JAVE_ROOT [--ffmpeg PATH]
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
+
+from convert_audio import ffmpeg_problem
 
 
 def slug(value: str) -> str:
@@ -471,18 +474,21 @@ def mix_audio(ffmpeg: str, source_dir: Path, destination: Path) -> str:
         pads = "".join(f"[{index}:a:0]" for index in range(len(inputs)))
         mix = f"{pads}amix=inputs={len(inputs)}:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95[mix]"
         command += ["-filter_complex", mix, "-map", "[mix]"]
-    command += ["-ar", "44100", "-ac", "2", "-codec:a", "adpcm_ms", str(destination)]
+    partial = destination.with_name(destination.stem + ".partial.ogg")
+    command += ["-ar", "44100", "-ac", "2", "-c:a", "libvorbis", "-q:a", "6", str(partial)]
     destination.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
+        partial.unlink(missing_ok=True)
         raise RuntimeError(result.stderr.strip() or f"ffmpeg exited {result.returncode}")
+    partial.replace(destination)
     return destination.name
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("psych_root", type=Path)
-parser.add_argument("jave_root", type=Path)
-parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"))
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("psych_root", type=Path, help="Psych Engine installation (holds assets/)")
+parser.add_argument("jave_root", type=Path, help="Jave Engine content root to write into")
+parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"), help="ffmpeg with the libvorbis encoder (default: ffmpeg on PATH)")
 parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--notes-only", action="store_true",
                     help="rebuild only the Psych note PNGs (no audio or chart conversion)")
@@ -501,8 +507,9 @@ if args.notes_only:
     print(f"done: rebuilt {len(note_images)} Psych note PNGs with baked RGB palettes")
     raise SystemExit(0)
 
-if not args.ffmpeg:
-    raise SystemExit("ffmpeg was not found; pass --ffmpeg path\\to\\ffmpeg.exe")
+ffmpeg_error = ffmpeg_problem(args.ffmpeg)
+if ffmpeg_error:
+    raise SystemExit(f"error: {ffmpeg_error}")
 assets = args.psych_root / "assets"
 audio_root = assets / "songs"
 chart_root = assets / "shared" / "data"
@@ -576,13 +583,13 @@ for record in records:
         "cameraSpeed": stage_config.get("cameraSpeed", 1.0),
         "defaultZoom": stage_config.get("defaultZoom", 0.9),
         "hideGirlfriend": stage_config.get("hideGirlfriend", False),
-        "audio": f"songs/{song_id}/Song.wav",
+        "audio": f"songs/{song_id}/Song.ogg",
         "chart": f"data/charts/{song_id}.json",
         "description": "Converted from the user's local PsychEngine folder.",
         "license": "User-supplied content; no redistribution rights granted by Jave Engine",
     }
     (record["songDir"] / "song.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    jobs.append((song_id, details, record["sourceAudio"], record["songDir"] / "Song.wav"))
+    jobs.append((song_id, details, record["sourceAudio"], record["songDir"] / "Song.ogg"))
 
 available_ids = {record["songId"] for record in records}
 for week in weeks:
@@ -639,7 +646,7 @@ report = [
     f"- Skipped songs: {len(skipped)}",
     f"- Errors: {len(errors)}",
     "- Difficulty imported: Normal",
-    "- Audio: Inst plus available Voices stems mixed to stereo Microsoft ADPCM WAV",
+    "- Audio: Inst plus available Voices stems mixed to stereo Ogg Vorbis (quality 6)",
     "- Charts: supplied section-based ownership converted; timing, lanes, and sustains retained",
     f"- Camera events: {sum(record['details']['cameraEvents'] for record in records)} section focus/position/zoom events converted",
     f"- Stage metadata: {len(stage_configs)} Psych stage JSON files converted with character and camera coordinates",
@@ -647,7 +654,7 @@ report = [
     f"- Visuals: {len(stage_images)} stage composites, {len(character_dirs)} characters, {animation_frame_count} animation frames, and {len(icon_paths)} health icons",
     f"- Note style: {len(note_images)} PNG frames extracted from the supplied Psych NOTE_assets atlas; Psych's default RGB shader palette was baked into colored frames",
     f"- Placeholder/fallback poses: {fallback_pose_count} unavailable sing poses reuse that character's imported idle frame",
-    "- Validation: generated paths, charts, ownership fields, week references, and WAV headers are checked by tools/validate_content.py",
+    "- Validation: generated paths, charts, ownership fields, week references, and audio headers are checked by tools/validate_content.py",
     "",
     "## Converted",
     "",

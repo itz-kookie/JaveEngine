@@ -1,5 +1,5 @@
 ## RIFF WAVE loading for the formats song packages use: PCM and float go through Godot, and
-## Microsoft ADPCM (what the content importer writes) is decoded to 16-bit PCM here.
+## Microsoft ADPCM is decoded to 16-bit PCM here.
 class_name WavFile
 extends RefCounted
 

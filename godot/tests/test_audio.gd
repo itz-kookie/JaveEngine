@@ -1,6 +1,8 @@
 extends "res://tests/test_base.gd"
 
-const NEON_STEPS_AUDIO := "res://content/songs/neon-steps/Inst.wav"
+const NEON_STEPS_AUDIO := "res://content/songs/neon-steps/Inst.ogg"
+const NEON_STEPS_SECONDS := 26.0
+const TEMP_WAV := "user://test_audio_pcm.wav"
 
 
 func run() -> void:
@@ -8,6 +10,7 @@ func run() -> void:
 	_test_stereo_block()
 	_test_fact_trims_padding()
 	_test_pcm_passes_through()
+	_test_demo_ogg()
 
 
 ## Coefficients 256/0 predict the previous sample; each nibble adds nibble * delta and delta never drops below 16.
@@ -43,8 +46,34 @@ func _test_fact_trims_padding() -> void:
 
 
 func _test_pcm_passes_through() -> void:
-	var stream := WavFile.load_stream(NEON_STEPS_AUDIO)
-	check(stream is AudioStreamWAV and stream.get_length() > 20.0, "PCM WAV still loads through Godot")
+	var format := PackedByteArray()
+	format.resize(16)
+	format.encode_u16(0, 1)
+	format.encode_u16(2, 2)
+	format.encode_u32(4, 8000)
+	format.encode_u32(8, 8000 * 4)
+	format.encode_u16(12, 4)
+	format.encode_u16(14, 16)
+	var data := PackedByteArray()
+	data.resize(8000 * 4)
+	var body := "WAVE".to_ascii_buffer()
+	body.append_array(_chunk("fmt ", format))
+	body.append_array(_chunk("data", data))
+	var file := FileAccess.open(TEMP_WAV, FileAccess.WRITE)
+	file.store_buffer(_chunk("RIFF", body))
+	file.close()
+	var stream := WavFile.load_stream(TEMP_WAV)
+	DirAccess.remove_absolute(TEMP_WAV)
+	check(stream is AudioStreamWAV and stream.stereo, "PCM WAV loads through Godot")
+	if stream != null:
+		check_near(stream.get_length(), 1.0, "PCM WAV length")
+
+
+func _test_demo_ogg() -> void:
+	var stream := AudioStreamOggVorbis.load_from_file(NEON_STEPS_AUDIO)
+	check(stream != null, "demo Ogg Vorbis loads")
+	if stream != null:
+		check(absf(stream.get_length() - NEON_STEPS_SECONDS) < 0.05, "demo Ogg lasts 26 s (got %f)" % stream.get_length())
 
 
 func _decode(bytes: PackedByteArray) -> AudioStreamWAV:
