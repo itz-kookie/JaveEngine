@@ -56,12 +56,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	for lane in LANE_COUNT:
 		if event.is_action(LANE_ACTIONS[lane]):
-			_on_lane_event(lane, event.is_pressed())
+			set_lane(lane, event.is_pressed())
 			get_viewport().set_input_as_handled()
 			return
 
 
-func _on_lane_event(lane: int, pressed: bool) -> void:
+## Shared by keys and touch so both stamp presses with the same song clock.
+func set_lane(lane: int, pressed: bool) -> void:
 	var song_ms := Conductor.now_ms()
 	var bit := 1 << lane
 	if pressed:

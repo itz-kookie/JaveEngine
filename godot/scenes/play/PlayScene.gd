@@ -54,6 +54,8 @@ func _start() -> void:
 	_stage.setup(song, _assets)
 	_strumline.setup(Settings.downscroll, Settings.note_speed)
 	_hud.setup(song)
+	if TouchControls.enabled():
+		$Overlay.add_child(TouchControls.make_lanes())
 	Log.info("Stage layout applied: %s revision=%d from %s" % [song.stage, JsonRead.integer(song.stage_layout, "revision"), song.stage_config_path])
 	if not Conductor.start(_assets.stream):
 		_fail("Could not play song audio")

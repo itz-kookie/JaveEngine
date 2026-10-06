@@ -77,7 +77,8 @@ func cutscene_path(song_id: String, outro: bool) -> String:
 	return _prefer_user_mirror(Paths.content(relative))
 
 
-func load_audio(path: String) -> AudioStream:
+func load_audio(song_path: String) -> AudioStream:
+	var path := preferred_audio(song_path, OS.has_feature("mobile"))
 	if not FileAccess.file_exists(path):
 		return null
 	match path.get_extension().to_lower():
@@ -88,6 +89,17 @@ func load_audio(path: String) -> AudioStream:
 		"mp3":
 			return AudioStreamMP3.load_from_file(path)
 	return null
+
+
+## Mobile builds favour a sibling .ogg from tools/convert_audio.py, which is far smaller than the WAV;
+## any build falls back to it when the WAV itself is missing.
+static func preferred_audio(path: String, mobile: bool) -> String:
+	if path.get_extension().to_lower() != "wav":
+		return path
+	var ogg := path.get_basename() + ".ogg"
+	if (mobile or not FileAccess.file_exists(path)) and FileAccess.file_exists(ogg):
+		return ogg
+	return path
 
 
 func _prefer_user_mirror(path: String) -> String:

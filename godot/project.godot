@@ -5,6 +5,8 @@ config_version=5
 config/name="Jave Engine"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7")
+config/quit_on_go_back=false
+config/icon="res://icon.svg"
 
 [autoload]
 
@@ -22,7 +24,17 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
+window/handheld/orientation=4
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/jave_content_export/plugin.cfg")
+
+[jave]
+
+debug/force_touch=false
 
 [rendering]
 
 textures/canvas_textures/default_texture_filter=1
+textures/vram_compression/import_etc2_astc=true

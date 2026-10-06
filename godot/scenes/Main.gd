@@ -21,6 +21,7 @@ var _cutscene_song: SongMeta
 var _cutscene_outro := false
 var _default_botplay := false
 var _shown_fps := -1
+var _touch_back: CanvasLayer
 
 @onready var _backdrop: MenuBackdrop = $Backdrop
 @onready var _pause: PauseMenu = $PauseMenu
@@ -31,10 +32,19 @@ var _shown_fps := -1
 func _ready() -> void:
 	_default_botplay = OS.get_cmdline_user_args().has("--botplay")
 	Settings.apply_window_mode()
+	_setup_touch()
 	_pause.resume_requested.connect(resume_song)
 	_pause.restart_requested.connect(restart_song)
 	_pause.botplay_toggled.connect(toggle_botplay)
 	switch_screen(Screen.TITLE)
+
+
+func _setup_touch() -> void:
+	if not TouchControls.enabled():
+		return
+	TouchControls.prepare()
+	_touch_back = TouchControls.make_back_button(_pause.layer + 1)
+	add_child(_touch_back)
 
 
 func screen_name() -> String:
@@ -54,6 +64,8 @@ func current_cutscene() -> Cutscene:
 
 
 func _process(delta: float) -> void:
+	if _touch_back != null:
+		_touch_back.visible = screen != Screen.TITLE
 	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE:
 		ModHost.update(delta)
 	_fps_label.visible = Settings.show_fps
@@ -162,6 +174,11 @@ func toggle_botplay() -> void:
 	_pause.set_botplay(gameplay.botplay)
 	_play.refresh()
 	Log.info("Botplay " + ("enabled" if gameplay.botplay else "disabled"))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		TouchControls.send_key(KEY_ESCAPE)
 
 
 func _unhandled_input(event: InputEvent) -> void:

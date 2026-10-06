@@ -7,6 +7,9 @@ const EXIT_INDEX := 5
 const BUTTON_IDS: PackedStringArray = ["story_mode", "freeplay", "mods", "options", "credits"]
 const BUTTON_LABELS: PackedStringArray = ["STORY MODE", "FREEPLAY", "MODS", "OPTIONS", "CREDITS"]
 const OPTIONS_INDEX := 3
+const ITEM_TOP := 0.075
+const ITEM_SPACING := 0.138
+const ITEM_HIT_WIDTH := 0.6
 const FOOTER_TEXT := "Jave Engine 0.1     UP / DOWN: SELECT     ENTER: CONFIRM"
 
 var _labels: Array[FunkinLabel] = []
@@ -42,9 +45,15 @@ func _confirm() -> void:
 	chosen.emit(selection)
 
 
+func item_at(point: Vector2) -> int:
+	var index := floori((point.y / Ui.SCREEN_SIZE.y - ITEM_TOP) / ITEM_SPACING)
+	var inside := point.x >= 0.0 and point.x < Ui.SCREEN_SIZE.x * ITEM_HIT_WIDTH
+	return index if inside and index >= 0 and index < item_count() else -1
+
+
 func _place_item(index: int, selected: bool) -> void:
 	var screen := Ui.SCREEN_SIZE
-	var y := screen.y * (0.075 + index * 0.138)
+	var y := screen.y * (ITEM_TOP + index * ITEM_SPACING)
 	var x := screen.x * (0.105 if selected else 0.075)
 	var height := screen.y * (0.113 if selected else 0.094)
 	var label := _labels[index]

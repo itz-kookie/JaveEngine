@@ -19,6 +19,7 @@ var _row_height := ROW_HEIGHT
 var _list_top := 0.0
 var _selection_tween := 0.0
 var _settled := true
+var _touch: MenuTouch = MenuTouch.new() if TouchControls.enabled() else null
 
 
 func _ready() -> void:
@@ -67,6 +68,14 @@ func build_list(labels: PackedStringArray, top: float, width: float, row_height 
 	Ui.footer(self, FOOTER, 42.0, 16, 30.0)
 
 
+## Item under a screen point, or -1; used by touch taps.
+func item_at(point: Vector2) -> int:
+	for index in _rows.size():
+		if _rows[index].visible and _rows[index].hit_rect().has_point(point):
+			return index
+	return -1
+
+
 func row(index: int) -> MenuRow:
 	return _rows[index]
 
@@ -77,6 +86,10 @@ func refresh_row(index: int, value: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _touch != null and (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		get_viewport().set_input_as_handled()
+		_on_touch(event)
+		return
 	var key := MenuInput.key_of(event)
 	if key == KEY_NONE:
 		return
@@ -95,6 +108,21 @@ func _on_key(key: Key) -> void:
 		_confirm()
 	elif MenuInput.horizontal(key) != 0:
 		_adjust(MenuInput.horizontal(key))
+
+
+## Tap picks a row and a second tap confirms it; screens without rows confirm on any tap.
+func _on_touch(event: InputEvent) -> void:
+	match _touch.feed(event):
+		MenuTouch.Gesture.TAP:
+			var index := item_at(_touch.tap_position)
+			if index == selection or item_count() == 0:
+				_confirm()
+			elif index >= 0:
+				select(index)
+		MenuTouch.Gesture.STEP:
+			select(MenuInput.wrap_selection(selection, _touch.direction, item_count()))
+		MenuTouch.Gesture.ADJUST:
+			_adjust(_touch.direction)
 
 
 func _process(delta: float) -> void:

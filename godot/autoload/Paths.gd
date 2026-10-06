@@ -2,13 +2,11 @@ extends Node
 
 const CONTENT_ROOT := "res://content"
 const USER_ROOT := "user://"
-const USER_CONFIG := "user://config"
-const USER_SAVES := "user://saves"
+const USER_FOLDERS: PackedStringArray = ["config", "mods", "saves"]
 
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(USER_CONFIG)
-	DirAccess.make_dir_recursive_absolute(USER_SAVES)
+	prepare_user_root(USER_ROOT)
 
 
 func content(relative: String) -> String:
@@ -22,3 +20,9 @@ func user(relative: String) -> String:
 ## Writable twin of a read-only res:// path (res://x -> user://x); user:// paths are returned unchanged.
 func user_mirror(path: String) -> String:
 	return USER_ROOT.path_join(path.trim_prefix("res://")) if path.begins_with("res://") else path
+
+
+## Settings defaults are never copied here: they always come from the shipped config/default.json.
+static func prepare_user_root(user_root: String) -> void:
+	for folder in USER_FOLDERS:
+		DirAccess.make_dir_recursive_absolute(user_root.path_join(folder))

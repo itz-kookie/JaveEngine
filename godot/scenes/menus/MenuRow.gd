@@ -69,6 +69,10 @@ func place(menu_x: float, y: float, offset: float, selected: bool) -> void:
 		Ui.fit_image(_icon, _icon.texture, Rect2(icon_x, 7.0, ICON_SIZE, ICON_SIZE))
 
 
+func hit_rect() -> Rect2:
+	return Rect2(position + MARKER_RECT.position, Vector2(_width - MARKER_RECT.position.x, selected_height if _selected else unselected_height))
+
+
 func _refresh_size() -> void:
 	if _art == null:
 		_label.show_text(text, _width - 70.0, selected_height if _selected else unselected_height)
