@@ -20,6 +20,7 @@ const HINT_COLOR := Color8(137, 149, 184)
 var selection := 0
 
 var _time := 0.0
+var _touch: MenuTouch = MenuTouch.new() if TouchControls.enabled() else null
 var _root: Control
 var _built_accent: Color
 var _title: Label
@@ -55,19 +56,53 @@ func set_botplay(enabled: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
+	if _touch != null and (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		get_viewport().set_input_as_handled()
+		_match_touch(event)
+		return
 	var key := MenuInput.key_of(event)
-	if key == KEY_NONE:
+	var back := MenuInput.is_back_event(event) or (GameActions.is_pressed(event, GameActions.GAME_PAUSE) \
+		and not MenuInput.is_confirm_event(event))
+	var step := MenuInput.vertical_event(event)
+	var confirm := MenuInput.is_confirm_event(event)
+	if key == KEY_NONE and not back and step == 0 and not confirm:
 		return
 	get_viewport().set_input_as_handled()
-	if MenuInput.is_back(key):
+	if back:
 		resume_requested.emit()
 		return
-	var step := MenuInput.vertical(key)
 	if step != 0:
 		selection = MenuInput.wrap_selection(selection, step, Item.size())
 		_show_selection()
-	elif MenuInput.is_confirm(key):
+	elif confirm:
 		_choose()
+
+
+func _match_touch(event: InputEvent) -> void:
+	match _touch.feed(event):
+		MenuTouch.Gesture.TAP:
+			var index := _item_at(_touch.tap_position)
+			if index < 0:
+				return
+			if index == selection:
+				_choose()
+			else:
+				selection = index
+				_show_selection()
+		MenuTouch.Gesture.STEP:
+			selection = MenuInput.wrap_selection(selection, _touch.direction, Item.size())
+			_show_selection()
+
+
+func _item_at(point: Vector2) -> int:
+	var origin := (Ui.SCREEN_SIZE - PANEL_SIZE) * 0.5
+	var rows_x := origin.x + 58.0
+	var row_width := PANEL_SIZE.x - 116.0
+	for index in Item.size():
+		var row := Rect2(rows_x, origin.y + 145.0 + index * ROW_SPACING, row_width, ROW_HEIGHT)
+		if row.has_point(point):
+			return index
+	return -1
 
 
 func _choose() -> void:
@@ -125,7 +160,7 @@ func _build() -> void:
 		_build_row(root, Vector2(origin.x + 58.0, origin.y + 145.0 + index * ROW_SPACING), PANEL_SIZE.x - 116.0)
 	_labels[Item.RESUME].text = "Resume"
 	_labels[Item.RESTART].text = "Restart Song"
-	Ui.text(root, "↑↓ Choose     Enter Select     Escape Resume", Rect2(origin.x + 35.0, origin.y + PANEL_SIZE.y - 58.0, PANEL_SIZE.x - 70.0, 30.0), 15, HINT_COLOR, false, HORIZONTAL_ALIGNMENT_CENTER)
+	Ui.text(root, "↑↓ / D-PAD Choose     Enter / A Select     B / Start Resume", Rect2(origin.x + 35.0, origin.y + PANEL_SIZE.y - 58.0, PANEL_SIZE.x - 70.0, 30.0), 15, HINT_COLOR, false, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _build_row(root: Control, at: Vector2, width: float) -> void:

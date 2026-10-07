@@ -146,7 +146,8 @@ func _check_skip_keys(song: SongMeta) -> void:
 		_press(first_lane)
 		_hold(second_lane)
 		var lane_input := root.get_node("/root/LaneInput")
-		check(lane_input.call("has_press"), "lane press recorded during cutscene")
+		check(not lane_input.call("has_press") and lane_input.get("held_mask") == 0,
+			"gameplay lane input is ignored during cutscenes")
 		var cutscene: Node = _main.call("current_cutscene")
 		_press(key)
 		cutscene.call("_finish", &"timeout")
@@ -154,7 +155,7 @@ func _check_skip_keys(song: SongMeta) -> void:
 		await process_frame
 		_expect_screen("PLAY")
 		check(_main.call("current_play").get("song") == song, "skip with %s starts the song" % OS.get_keycode_string(key))
-		check(not lane_input.call("has_press") and lane_input.get("held_mask") == 0, "cutscene input discarded")
+		check(not lane_input.call("has_press") and lane_input.get("held_mask") == 0, "cutscene input does not leak into gameplay")
 		_release(second_lane)
 	_press(KEY_ESCAPE)
 	_expect_screen("STORY")

@@ -1,4 +1,4 @@
-## Single switch for the touch control stub: lanes in play, gestures on menus and an on-screen Back.
+## Single switch for touch controls: visible full-screen lanes in play, menu gestures, Back and Pause buttons.
 ## On with a touchscreen, or forced on desktop with `-- --touch` or the jave/debug/force_touch setting.
 class_name TouchControls
 extends RefCounted
@@ -6,6 +6,7 @@ extends RefCounted
 const FORCE_SETTING := "jave/debug/force_touch"
 const LANES_SCENE := "res://scenes/play/TouchLanes.tscn"
 const BACK_RECT := Rect2(8.0, 8.0, 104.0, 44.0)
+const PAUSE_RECT := Rect2(Ui.SCREEN_SIZE.x - 112.0, 8.0, 104.0, 44.0)
 
 
 static func enabled() -> bool:
@@ -43,17 +44,45 @@ static func send_key(key: Key) -> void:
 
 ## Drawn and hit-tested by hand rather than a Button so its touches never also reach the screen below.
 class BackButton extends CanvasLayer:
+	var pause_visible := false
+	var _pause_panel: Control
+	var _claimed_fingers: Dictionary[int, bool] = {}
+
 	func _ready() -> void:
 		var root := Control.new()
 		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(root)
 		var panel := Ui.box(root, BACK_RECT, Color(Ui.BAR_COLOR, 0.8), 10, Ui.accent, 2)
 		Ui.text(panel, "BACK", Rect2(Vector2.ZERO, BACK_RECT.size), 18, Ui.WHITE, true, HORIZONTAL_ALIGNMENT_CENTER)
+		_pause_panel = Ui.box(root, PAUSE_RECT, Color(Ui.BAR_COLOR, 0.8), 10, Color("#ffda65"), 2)
+		Ui.text(_pause_panel, "Ⅱ  PAUSE", Rect2(Vector2.ZERO, PAUSE_RECT.size), 16, Color("#ffda65"), true, HORIZONTAL_ALIGNMENT_CENTER)
+		_pause_panel.visible = pause_visible
+
+
+	func set_pause_visible(visible_now: bool) -> void:
+		pause_visible = visible_now
+		if _pause_panel != null:
+			_pause_panel.visible = pause_visible
 
 	func _input(event: InputEvent) -> void:
-		var touch := event as InputEventScreenTouch
-		if not visible or touch == null or not BACK_RECT.has_point(touch.position):
+		var drag := event as InputEventScreenDrag
+		if drag != null and _claimed_fingers.has(drag.index):
+			get_viewport().set_input_as_handled()
 			return
-		get_viewport().set_input_as_handled()
+		var touch := event as InputEventScreenTouch
+		if touch == null:
+			return
+		if not touch.pressed and _claimed_fingers.has(touch.index):
+			_claimed_fingers.erase(touch.index)
+			get_viewport().set_input_as_handled()
+			return
+		if not visible:
+			return
 		if touch.pressed:
-			TouchControls.send_key(KEY_ESCAPE)
+			var on_back := BACK_RECT.has_point(touch.position)
+			var on_pause := pause_visible and PAUSE_RECT.has_point(touch.position)
+			if not on_back and not on_pause:
+				return
+			_claimed_fingers[touch.index] = true
+			get_viewport().set_input_as_handled()
+			TouchControls.send_key(KEY_ENTER if on_pause else KEY_ESCAPE)

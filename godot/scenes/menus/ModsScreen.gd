@@ -165,9 +165,16 @@ func _on_key(key: Key) -> void:
 	super._on_key(key)
 
 
+func _on_action_event(event: InputEvent) -> bool:
+	if MenuInput.is_back_event(event) and mode != Mode.LIST:
+		_step_back()
+		return true
+	return super._on_action_event(event)
+
+
 ## Escape inside the URL field leaves it, like Escape anywhere else on this screen.
 func _on_url_input(event: InputEvent) -> void:
-	if MenuInput.is_back(MenuInput.key_of(event)):
+	if MenuInput.is_back_event(event):
 		_url_edit.accept_event()
 		_step_back()
 

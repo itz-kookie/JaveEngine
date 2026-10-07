@@ -34,5 +34,35 @@ static func horizontal(key: Key) -> int:
 	return 0
 
 
+static func is_confirm_event(event: InputEvent) -> bool:
+	return GameActions.is_pressed(event, GameActions.MENU_CONFIRM)
+
+
+static func is_back_event(event: InputEvent) -> bool:
+	return GameActions.is_pressed(event, GameActions.MENU_BACK)
+
+
+static func vertical_event(event: InputEvent) -> int:
+	var motion := event as InputEventJoypadMotion
+	if motion != null and motion.axis == JOY_AXIS_LEFT_Y:
+		return GameActions.stick_navigation_step(motion, JOY_AXIS_LEFT_Y)
+	if GameActions.is_pressed(event, GameActions.MENU_UP):
+		return -1
+	if GameActions.is_pressed(event, GameActions.MENU_DOWN):
+		return 1
+	return 0
+
+
+static func horizontal_event(event: InputEvent) -> int:
+	var motion := event as InputEventJoypadMotion
+	if motion != null and motion.axis == JOY_AXIS_LEFT_X:
+		return GameActions.stick_navigation_step(motion, JOY_AXIS_LEFT_X)
+	if GameActions.is_pressed(event, GameActions.MENU_LEFT):
+		return -1
+	if GameActions.is_pressed(event, GameActions.MENU_RIGHT):
+		return 1
+	return 0
+
+
 static func wrap_selection(selection: int, step: int, count: int) -> int:
 	return 0 if count <= 0 else posmod(selection + step, count)

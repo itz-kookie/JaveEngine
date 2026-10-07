@@ -32,10 +32,10 @@ godot --path godot -- --botplay # start songs with Botplay on
 
 | Where | Keys |
 | --- | --- |
-| Menus | Up/Down or W/S to move, Left/Right to adjust, Enter to select, Escape to go back |
-| Song | D F J K for the four lanes (rebindable in Options), Enter to pause, Escape to leave, `7` for the chart editor |
-| Pause menu | Up/Down, Enter; Escape resumes |
-| Cutscene | Enter or Space skips; Escape returns to Story Mode |
+| Menus | Up/Down or W/S, or a gamepad D-pad/left stick; Left/Right adjusts; Enter/A confirms; Escape/B goes back. Touch uses row taps and swipes. |
+| Song | D F J K or gamepad X A Y B for Left/Down/Up/Right (both rebindable in Options); Enter/Start pauses; Escape/gamepad Back leaves; `7` opens the chart editor. Touch devices show four full-screen lanes with visible arrow buttons. |
+| Pause menu | Up/Down or D-pad/left stick; Enter/A selects; Escape/B/Start resumes. Touch uses row taps and swipes. |
+| Cutscene | Enter, Space or gamepad A skips; Escape/B returns to Story Mode. |
 
 ## Project layout
 

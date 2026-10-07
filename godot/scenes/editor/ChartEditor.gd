@@ -177,6 +177,27 @@ func _action_at(point: Vector2) -> int:
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := MenuInput.key_of(event)
+	if MenuInput.is_back_event(event):
+		get_viewport().set_input_as_handled()
+		close_requested.emit()
+		return
+	var vertical := MenuInput.vertical_event(event)
+	if vertical != 0:
+		get_viewport().set_input_as_handled()
+		selection = MenuInput.wrap_selection(selection, vertical, ACTION_LABELS.size())
+		_refresh()
+		return
+	var horizontal := MenuInput.horizontal_event(event)
+	if horizontal != 0:
+		get_viewport().set_input_as_handled()
+		state.cycle_lane(horizontal)
+		_refresh()
+		return
+	if MenuInput.is_confirm_event(event):
+		get_viewport().set_input_as_handled()
+		_activate(selection)
+		_refresh()
+		return
 	if key == KEY_NONE:
 		return
 	get_viewport().set_input_as_handled()

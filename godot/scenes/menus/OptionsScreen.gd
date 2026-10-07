@@ -3,9 +3,9 @@ extends MenuScreen
 
 enum Option { VOLUME, NOTE_SPEED, SCROLL, FULLSCREEN, SHOW_FPS, AUDIO_OFFSET, FIRST_KEY }
 
-const LANE_NAMES: PackedStringArray = ["Left Key", "Down Key", "Up Key", "Right Key"]
-const HINT := "Left/Right adjusts. Enter toggles a setting or rebinds a key."
-const REBIND_HINT := "Press a key, or Escape to cancel."
+const LANE_NAMES: PackedStringArray = ["Left Lane", "Down Lane", "Up Lane", "Right Lane"]
+const HINT := "Left/Right or D-pad adjusts. Enter/A toggles a setting or rebinds a lane."
+const REBIND_HINT := "Press a key or gamepad button. Escape / Pad Back cancels."
 const OVERLAY_COLOR := Color8(28, 31, 66)
 
 var rebinding_lane := -1
@@ -23,6 +23,31 @@ func _build() -> void:
 	_build_overlay()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if rebinding_lane < 0:
+		super._unhandled_input(event)
+		return
+	if MenuInput.key_of(event) == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		_set_rebinding(-1)
+		return
+	var key := MenuInput.key_of(event)
+	if key != KEY_NONE:
+		get_viewport().set_input_as_handled()
+		_capture_key(key)
+		return
+	var button := event as InputEventJoypadButton
+	if button != null and button.pressed:
+		get_viewport().set_input_as_handled()
+		if button.button_index == JOY_BUTTON_BACK:
+			_set_rebinding(-1)
+			return
+		if Settings.set_lane_joy_button(rebinding_lane, button.button_index):
+			LaneInput.bind_lanes()
+			_option_changed(Option.FIRST_KEY + rebinding_lane)
+			_set_rebinding(-1)
+
+
 func option_label(index: int) -> String:
 	match index:
 		Option.VOLUME:
@@ -38,7 +63,8 @@ func option_label(index: int) -> String:
 		Option.AUDIO_OFFSET:
 			return "Audio Offset      %+d ms" % roundi(Settings.audio_offset_ms)
 	var lane := index - Option.FIRST_KEY
-	return LANE_NAMES[lane] + "          " + OS.get_keycode_string(Settings.lane_key(lane))
+	return LANE_NAMES[lane] + "   " + OS.get_keycode_string(Settings.lane_key(lane)) \
+		+ " / " + _joy_button_name(Settings.lane_joy_button(lane))
 
 
 func _on_key(key: Key) -> void:
@@ -107,6 +133,23 @@ func _capture_key(key: Key) -> void:
 	_set_rebinding(-1)
 
 
+func _joy_button_name(button: int) -> String:
+	match button:
+		JOY_BUTTON_A: return "A"
+		JOY_BUTTON_B: return "B"
+		JOY_BUTTON_X: return "X"
+		JOY_BUTTON_Y: return "Y"
+		JOY_BUTTON_BACK: return "Back"
+		JOY_BUTTON_START: return "Start"
+		JOY_BUTTON_LEFT_SHOULDER: return "L1"
+		JOY_BUTTON_RIGHT_SHOULDER: return "R1"
+		JOY_BUTTON_DPAD_UP: return "D-pad Up"
+		JOY_BUTTON_DPAD_DOWN: return "D-pad Down"
+		JOY_BUTTON_DPAD_LEFT: return "D-pad Left"
+		JOY_BUTTON_DPAD_RIGHT: return "D-pad Right"
+		_: return "Button %d" % button
+
+
 func _set_rebinding(lane: int) -> void:
 	rebinding_lane = lane
 	_overlay.visible = lane >= 0
@@ -120,5 +163,5 @@ func _build_overlay() -> void:
 	add_child(_overlay)
 	var center := Ui.SCREEN_SIZE * 0.5
 	Ui.box(_overlay, Rect2(center.x - 260.0, center.y - 85.0, 520.0, 170.0), OVERLAY_COLOR, 26, Ui.accent, 3)
-	Ui.text(_overlay, "PRESS A NEW KEY", Rect2(center.x - 220.0, center.y - 50.0, 440.0, 60.0), 30, Color.WHITE, true, HORIZONTAL_ALIGNMENT_CENTER)
-	Ui.text(_overlay, "Escape cancels", Rect2(center.x - 220.0, center.y + 15.0, 440.0, 30.0), 16, Color8(160, 170, 200), false, HORIZONTAL_ALIGNMENT_CENTER)
+	Ui.text(_overlay, "PRESS A KEY OR GAMEPAD BUTTON", Rect2(center.x - 250.0, center.y - 50.0, 500.0, 60.0), 26, Color.WHITE, true, HORIZONTAL_ALIGNMENT_CENTER)
+	Ui.text(_overlay, "Escape / Pad Back cancels", Rect2(center.x - 220.0, center.y + 15.0, 440.0, 30.0), 16, Color8(160, 170, 200), false, HORIZONTAL_ALIGNMENT_CENTER)

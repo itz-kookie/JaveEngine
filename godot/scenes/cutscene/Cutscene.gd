@@ -58,10 +58,10 @@ func _fit_frame() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key := MenuInput.key_of(event)
-	if MenuInput.is_back(key):
+	if MenuInput.is_back_event(event) or MenuInput.is_back(key):
 		get_viewport().set_input_as_handled()
 		_finish(&"cancel")
-	elif MenuInput.is_confirm(key) or key == KEY_SPACE:
+	elif MenuInput.is_confirm_event(event) or MenuInput.is_confirm(key) or key == KEY_SPACE:
 		get_viewport().set_input_as_handled()
 		_finish(&"skip")
 

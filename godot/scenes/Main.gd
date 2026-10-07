@@ -68,6 +68,7 @@ func current_cutscene() -> Cutscene:
 func _process(delta: float) -> void:
 	if _touch_back != null:
 		_touch_back.visible = screen != Screen.TITLE
+		_touch_back.call("set_pause_visible", screen == Screen.PLAY and _play != null and _play.is_playing())
 	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE \
 			and not (screen == Screen.PLAY and _play != null and _play.is_dying()):
 		ModHost.update(delta)
@@ -126,6 +127,7 @@ func start_story_song(song: SongMeta) -> void:
 
 
 func pause_song() -> void:
+	LaneInput.suspend_gameplay_input()
 	Conductor.pause()
 	_play.process_mode = Node.PROCESS_MODE_DISABLED
 	_pause.open(_play.song.title, _play.gameplay.botplay)
@@ -138,6 +140,7 @@ func resume_song() -> void:
 	LaneInput.discard_presses()
 	_play.process_mode = Node.PROCESS_MODE_INHERIT
 	Conductor.resume()
+	LaneInput.gameplay_input_enabled = true
 	screen = Screen.PLAY
 	Log.info("Game resumed: " + _play.song.id)
 
@@ -151,6 +154,7 @@ func restart_song() -> void:
 
 
 func open_chart_editor() -> void:
+	LaneInput.suspend_gameplay_input()
 	Conductor.pause()
 	_play.process_mode = Node.PROCESS_MODE_DISABLED
 	_editor = CHART_EDITOR_SCENE.instantiate()
@@ -169,6 +173,7 @@ func close_chart_editor() -> void:
 	LaneInput.discard_presses()
 	_play.process_mode = Node.PROCESS_MODE_INHERIT
 	Conductor.resume()
+	LaneInput.gameplay_input_enabled = true
 	screen = Screen.PLAY
 
 
@@ -194,10 +199,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if (key == KEY_7 or key == KEY_KP_7) and _play.is_playing():
 		get_viewport().set_input_as_handled()
 		open_chart_editor()
-	elif MenuInput.is_confirm(key) and _play.is_playing():
+	elif GameActions.is_pressed(event, GameActions.GAME_PAUSE) and _play.is_playing():
 		get_viewport().set_input_as_handled()
 		pause_song()
-	elif MenuInput.is_back(key):
+	elif GameActions.is_pressed(event, GameActions.GAME_LEAVE):
 		get_viewport().set_input_as_handled()
 		_leave_song()
 
@@ -381,6 +386,7 @@ func _close_menu() -> void:
 
 ## Detaches immediately so the old song's exit stops the clock before a new song can start it.
 func _close_play() -> void:
+	LaneInput.suspend_gameplay_input()
 	_pause.close()
 	_close_editor()
 	if _play == null:

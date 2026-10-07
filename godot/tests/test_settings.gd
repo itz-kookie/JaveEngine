@@ -78,6 +78,10 @@ func _test_settings_round_trip() -> void:
 	saved.show_fps = false
 	saved.audio_offset_ms = -25.0
 	check(saved.set_lane_key(2, KEY_UP), "arrow key can be bound")
+	check(saved.set_lane_joy_button(3, JOY_BUTTON_B), "menu Back button can be rebound to a gameplay lane")
+	check(not saved.set_lane_joy_button(3, JOY_BUTTON_START), "reserved pause button cannot be rebound to a lane")
+	check(not saved.set_lane_joy_button(3, JOY_BUTTON_BACK), "reserved controller Back button cannot be rebound to a lane")
+	check(saved.set_lane_joy_button(2, JOY_BUTTON_RIGHT_SHOULDER), "lane can be rebound to a gamepad button")
 	saved.save()
 	var loaded: Node = _settings_script.new()
 	loaded.load_file(saved.save_path)
@@ -86,6 +90,8 @@ func _test_settings_round_trip() -> void:
 	check(loaded.downscroll and not loaded.show_fps, "toggles persist")
 	check_near(loaded.audio_offset_ms, -25.0, "audio offset persists")
 	check(loaded.lane_key(2) == KEY_UP and loaded.keybinds[2] == 38, "rebound key persists as a virtual key")
+	check(loaded.lane_joy_button(2) == JOY_BUTTON_RIGHT_SHOULDER, "rebound gamepad button persists")
+	check(loaded.lane_joy_button(3) == JOY_BUTTON_B, "gamepad B binding persists for a lane")
 	saved.free()
 	loaded.free()
 

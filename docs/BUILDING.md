@@ -53,7 +53,7 @@ Writable data lives in Godot's `user://` folder:
 
 Contents:
 
-- `config/settings.json`: options. Defaults come from the shipped `config/default.json`; this file overrides them. Keys: `masterVolume` (0–1), `noteSpeed` (0.5–2.5), `downscroll`, `fullscreen`, `showFps`, `audioOffsetMs` (−1000 to 1000), `keybinds` (four Windows virtual-key codes, left to right; default `[68, 70, 74, 75]` = D F J K).
+- `config/settings.json`: options. Defaults come from the shipped `config/default.json`; this file overrides them. Keys: `masterVolume` (0–1), `noteSpeed` (0.5–2.5), `downscroll`, `fullscreen`, `showFps`, `audioOffsetMs` (−1000 to 1000), `keybinds` (four Windows virtual-key codes, left to right; default `[68, 70, 74, 75]` = D F J K), and `joyBinds` (four Godot joypad button indexes, left to right; default face-button positions X A Y B).
 - `config/mods.json`: enabled/disabled state chosen in the Mods screen.
 - `mods/<mod-id>/`: mods and content packs installed by the user (copied in or imported from the Mods screen), loaded alongside the shipped `mods/`. See [Content packs](CONTENT_IMPORT.md#content-packs).
 - `cache/`: downloads and staging folders used while importing a content pack; safe to delete.

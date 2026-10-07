@@ -10,7 +10,7 @@ const OPTIONS_INDEX := 3
 const ITEM_TOP := 0.075
 const ITEM_SPACING := 0.138
 const ITEM_HIT_WIDTH := 0.6
-const FOOTER_TEXT := "Jave Engine %s     UP / DOWN: SELECT     ENTER: CONFIRM"
+const FOOTER_TEXT := "Jave Engine %s   TAP/SWIPE · UP/DOWN or D-PAD: SELECT · ENTER / A: CONFIRM"
 
 var _labels: Array[FunkinLabel] = []
 var _buttons: Array[AnimatedSprite2D] = []

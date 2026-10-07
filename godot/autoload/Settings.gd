@@ -1,6 +1,7 @@
 extends Node
 
 const DEFAULT_KEYBINDS: PackedInt32Array = [68, 70, 74, 75]
+const DEFAULT_JOYBINDS: PackedInt32Array = [JOY_BUTTON_X, JOY_BUTTON_A, JOY_BUTTON_Y, JOY_BUTTON_B]
 const VK_ARROWS: Array[Key] = [KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN]
 const VK_PUNCTUATION := {
 	186: KEY_SEMICOLON, 187: KEY_EQUAL, 188: KEY_COMMA, 189: KEY_MINUS, 190: KEY_PERIOD,
@@ -14,6 +15,7 @@ var downscroll := false
 var fullscreen := false
 var show_fps := true
 var keybinds: PackedInt32Array = DEFAULT_KEYBINDS.duplicate()
+var joybinds: PackedInt32Array = DEFAULT_JOYBINDS.duplicate()
 var audio_offset_ms := 0.0
 var save_path := Paths.user("config/settings.json")
 
@@ -41,6 +43,7 @@ func to_json() -> Dictionary:
 		"showFps": show_fps,
 		"audioOffsetMs": audio_offset_ms,
 		"keybinds": Array(keybinds),
+		"joyBinds": Array(joybinds),
 	}
 
 
@@ -75,6 +78,7 @@ func load_file(path: String) -> void:
 	show_fps = JsonRead.boolean(json, "showFps", show_fps)
 	audio_offset_ms = clampf(JsonRead.number(json, "audioOffsetMs", audio_offset_ms), -1000.0, 1000.0)
 	_load_keybinds(JsonRead.array(json, "keybinds"))
+	_load_joybinds(JsonRead.array(json, "joyBinds"))
 
 
 func _load_keybinds(binds: Array) -> void:
@@ -84,6 +88,15 @@ func _load_keybinds(binds: Array) -> void:
 		var key := int(JsonRead.as_number(binds[lane], keybinds[lane]))
 		if key > 0 and key < 256:
 			keybinds[lane] = key
+
+
+func _load_joybinds(binds: Array) -> void:
+	if binds.size() != 4:
+		return
+	for lane in 4:
+		var button := int(JsonRead.as_number(binds[lane], joybinds[lane]))
+		if button >= 0 and button < JOY_BUTTON_MAX and not _reserved_lane_joy_button(button):
+			joybinds[lane] = button
 
 
 func set_lane_key(lane: int, key: Key) -> bool:
@@ -97,6 +110,22 @@ func set_lane_key(lane: int, key: Key) -> bool:
 func lane_key(lane: int) -> Key:
 	var key := godot_key_for_vk(keybinds[lane])
 	return key if key != KEY_NONE else godot_key_for_vk(DEFAULT_KEYBINDS[lane])
+
+
+func set_lane_joy_button(lane: int, button: int) -> bool:
+	if lane < 0 or lane >= joybinds.size() or button < 0 or button >= JOY_BUTTON_MAX \
+			or _reserved_lane_joy_button(button):
+		return false
+	joybinds[lane] = button
+	return true
+
+
+func _reserved_lane_joy_button(button: int) -> bool:
+	return button in [JOY_BUTTON_BACK, JOY_BUTTON_START]
+
+
+func lane_joy_button(lane: int) -> int:
+	return joybinds[lane] if lane >= 0 and lane < joybinds.size() else DEFAULT_JOYBINDS[clampi(lane, 0, 3)]
 
 
 static func godot_key_for_vk(vk: int) -> Key:

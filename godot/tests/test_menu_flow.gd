@@ -17,12 +17,18 @@ func _run() -> void:
 	root.add_child(_main)
 	await process_frame
 	_expect_screen("TITLE")
+	_press_pad(JOY_BUTTON_DPAD_DOWN)
+	_press_pad(JOY_BUTTON_A)
+	_expect_screen("FREEPLAY")
+	_press_pad(JOY_BUTTON_B)
+	_expect_screen("TITLE")
 	_press(KEY_DOWN)
 	_press(KEY_ENTER)
 	_expect_screen("FREEPLAY")
 	await _wait_frames(2)
 	_press(KEY_ENTER)
 	_expect_screen("PLAY")
+	await _check_controller_play_actions()
 	await _check_pause_and_botplay()
 	await _check_restart_keeps_botplay()
 	await _check_song_end_and_results()
@@ -41,7 +47,7 @@ func _check_pause_and_botplay() -> void:
 	await _wait_until_playing(play)
 	var conductor := root.get_node("/root/Conductor")
 	await _check_chart_editor(play, conductor)
-	_press(KEY_ENTER)
+	_press(KEY_KP_ENTER)
 	_expect_screen("PAUSED")
 	check(conductor.get("paused"), "conductor paused")
 	check(play.process_mode == Node.PROCESS_MODE_DISABLED, "play scene frozen while paused")
@@ -58,6 +64,30 @@ func _check_pause_and_botplay() -> void:
 	check(not conductor.get("paused"), "conductor resumed")
 	await _wait_frames(10)
 	check(conductor.get("song_time_ms") > frozen_ms, "song clock advances after resume")
+
+
+func _check_controller_play_actions() -> void:
+	await _wait_until_playing(_main.call("current_play"))
+	var lane_input := root.get_node("/root/LaneInput")
+	_pad(JOY_BUTTON_A, true)
+	check(lane_input.held_mask == 0b0010, "gamepad A plays the Down lane during gameplay")
+	check(lane_input.has_press() and lane_input.press_lane() == 1, "gamepad lane press reaches the judge queue")
+	lane_input.discard_presses()
+	_pad(JOY_BUTTON_A, false)
+	_pad(JOY_BUTTON_B, true)
+	check(lane_input.held_mask == 0b1000, "gamepad B plays the Right lane instead of leaving gameplay")
+	lane_input.discard_presses()
+	_pad(JOY_BUTTON_B, false)
+	_press_pad(JOY_BUTTON_START)
+	_expect_screen("PAUSED")
+	check(lane_input.held_mask == 0, "pausing releases held controller lanes")
+	_press_pad(JOY_BUTTON_B)
+	_expect_screen("PLAY")
+	_press_pad(JOY_BUTTON_BACK)
+	_expect_screen("FREEPLAY")
+	_press(KEY_ENTER)
+	_expect_screen("PLAY")
+	await _wait_until_playing(_main.call("current_play"))
 
 
 func _check_chart_editor(play: Node, conductor: Node) -> void:
@@ -235,6 +265,18 @@ func _press(key: Key) -> void:
 		event.keycode = key
 		event.pressed = pressed
 		root.push_input(event)
+
+
+func _press_pad(button: JoyButton) -> void:
+	for pressed in [true, false]:
+		_pad(button, pressed)
+
+
+func _pad(button: JoyButton, pressed: bool) -> void:
+	var event := InputEventJoypadButton.new()
+	event.button_index = button
+	event.pressed = pressed
+	root.push_input(event)
 
 
 func _expect_screen(expected: String) -> void:

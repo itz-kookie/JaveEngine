@@ -51,7 +51,8 @@ func _input(event: InputEvent) -> void:
 		return
 	var touch := event as InputEventScreenTouch
 	var key := MenuInput.key_of(event)
-	if (touch != null and touch.pressed) or MenuInput.is_confirm(key) or MenuInput.is_back(key):
+	if (touch != null and touch.pressed) or MenuInput.is_confirm_event(event) \
+			or MenuInput.is_back_event(event) or MenuInput.is_confirm(key) or MenuInput.is_back(key):
 		get_viewport().set_input_as_handled()
 		skip_death()
 
@@ -87,6 +88,7 @@ func _start() -> void:
 	ModHost.song_start(song.id)
 	LaneInput.clear()
 	state = State.PLAYING
+	LaneInput.gameplay_input_enabled = true
 	_render()
 
 
@@ -106,7 +108,7 @@ func _begin_death() -> void:
 	if state != State.PLAYING:
 		return
 	Conductor.stop()
-	LaneInput.clear()
+	LaneInput.suspend_gameplay_input()
 	state = State.DYING
 	_death_elapsed = 0.0
 	_death_duration = _stage.death_animation_duration()
@@ -147,6 +149,7 @@ func _render() -> void:
 
 func _finish() -> void:
 	Conductor.stop()
+	LaneInput.suspend_gameplay_input()
 	state = State.DONE
 	Log.info("Song finished: %s score=%d sick=%d good=%d bad=%d miss=%d maxCombo=%d" % [
 		song.id, gameplay.score, gameplay.sick_count, gameplay.good_count, gameplay.bad_count,
@@ -156,12 +159,14 @@ func _finish() -> void:
 
 func _fail(message: String) -> void:
 	Conductor.stop()
+	LaneInput.suspend_gameplay_input()
 	state = State.DONE
 	Log.info("Could not start song: " + message)
 	failed.emit(message)
 
 
 func _exit_tree() -> void:
+	LaneInput.suspend_gameplay_input()
 	if _assets != null and state == State.LOADING:
 		_assets.finish_loading()
 	if state == State.PLAYING:

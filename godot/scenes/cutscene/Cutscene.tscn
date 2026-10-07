@@ -37,6 +37,6 @@ offset_right = 1268.0
 offset_bottom = 720.0
 theme_override_colors/font_color = Color(0.8627, 0.8627, 0.8627, 1)
 theme_override_font_sizes/font_size = 14
-text = "ENTER / SPACE: Skip cutscene     ESC: Back to Story Mode"
+text = "ENTER / SPACE / A: Skip cutscene     ESC / B: Back to Story Mode"
 horizontal_alignment = 1
 vertical_alignment = 1

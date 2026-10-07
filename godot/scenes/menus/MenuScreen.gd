@@ -10,7 +10,7 @@ const ROWS_BEFORE := 4
 const ROWS_AFTER := 5
 const TWEEN_RATE := 14.0
 const SETTLED := 0.001
-const FOOTER := "UP / DOWN: SELECT     ENTER: CONFIRM     ESC: BACK"
+const FOOTER := "TAP / SWIPE · UP/DOWN or D-PAD: SELECT · ENTER / A: CONFIRM · ESC / B: BACK"
 
 var selection := 0
 
@@ -110,10 +110,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		_on_touch(event)
 		return
 	var key := MenuInput.key_of(event)
-	if key == KEY_NONE:
-		return
-	get_viewport().set_input_as_handled()
-	_on_key(key)
+	var viewport := get_viewport()
+	if key != KEY_NONE:
+		if viewport != null:
+			viewport.set_input_as_handled()
+		_on_key(key)
+	elif _on_action_event(event):
+		if viewport != null:
+			viewport.set_input_as_handled()
+
+
+func _on_action_event(event: InputEvent) -> bool:
+	if MenuInput.is_back_event(event):
+		back_requested.emit()
+		return true
+	var step := MenuInput.vertical_event(event)
+	if step != 0:
+		select(MenuInput.wrap_selection(selection, step, item_count()))
+		return true
+	elif MenuInput.is_confirm_event(event):
+		_confirm()
+		return true
+	var horizontal := MenuInput.horizontal_event(event)
+	if horizontal != 0:
+		_adjust(horizontal)
+		return true
+	return false
 
 
 func _on_key(key: Key) -> void:
