@@ -56,6 +56,7 @@ func _check_pause_and_botplay() -> void:
 	check(conductor.get("song_time_ms") == frozen_ms, "song clock frozen while paused")
 	_press(KEY_DOWN)
 	_press(KEY_DOWN)
+	_press(KEY_DOWN)
 	_press(KEY_ENTER)
 	_expect_screen("PAUSED")
 	check(play.get("gameplay").botplay, "pause menu toggles botplay on")

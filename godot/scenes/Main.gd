@@ -24,6 +24,7 @@ var _cutscene_outro := false
 var _default_botplay := false
 var _shown_fps := -1
 var _touch_back: CanvasLayer
+var _editor_return_to_pause := false
 
 @onready var _backdrop: MenuBackdrop = $Backdrop
 @onready var _pause: PauseMenu = $PauseMenu
@@ -38,6 +39,7 @@ func _ready() -> void:
 	_pause.resume_requested.connect(resume_song)
 	_pause.restart_requested.connect(restart_song)
 	_pause.botplay_toggled.connect(toggle_botplay)
+	_pause.chart_editor_requested.connect(open_chart_editor.bind(true))
 	switch_screen(Screen.TITLE)
 
 
@@ -153,7 +155,10 @@ func restart_song() -> void:
 	start_song(song, botplay)
 
 
-func open_chart_editor() -> void:
+func open_chart_editor(return_to_pause := false) -> void:
+	_editor_return_to_pause = return_to_pause
+	if return_to_pause:
+		_pause.close()
 	LaneInput.suspend_gameplay_input()
 	Conductor.pause()
 	_play.process_mode = Node.PROCESS_MODE_DISABLED
@@ -171,6 +176,11 @@ func close_chart_editor() -> void:
 	Log.info("Chart editor closed %s%s" % ["without saving: " if _editor.state.dirty else "after save: ", _play.song.id])
 	_close_editor()
 	LaneInput.discard_presses()
+	if _editor_return_to_pause:
+		_editor_return_to_pause = false
+		_pause.open(_play.song.title, _play.gameplay.botplay)
+		screen = Screen.PAUSED
+		return
 	_play.process_mode = Node.PROCESS_MODE_INHERIT
 	Conductor.resume()
 	LaneInput.gameplay_input_enabled = true

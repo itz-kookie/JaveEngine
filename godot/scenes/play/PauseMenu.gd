@@ -4,10 +4,11 @@ extends CanvasLayer
 signal resume_requested
 signal restart_requested
 signal botplay_toggled
+signal chart_editor_requested
 
-enum Item { RESUME, RESTART, BOTPLAY }
+enum Item { RESUME, RESTART, CHART_EDITOR, BOTPLAY }
 
-const PANEL_SIZE := Vector2(520.0, 440.0)
+const PANEL_SIZE := Vector2(520.0, 480.0)
 const ROW_SPACING := 64.0
 const ROW_HEIGHT := 52.0
 const SHADOW_COLOR := Color8(4, 5, 13)
@@ -111,6 +112,8 @@ func _choose() -> void:
 			resume_requested.emit()
 		Item.RESTART:
 			restart_requested.emit()
+		Item.CHART_EDITOR:
+			chart_editor_requested.emit()
 		Item.BOTPLAY:
 			botplay_toggled.emit()
 
@@ -160,6 +163,7 @@ func _build() -> void:
 		_build_row(root, Vector2(origin.x + 58.0, origin.y + 145.0 + index * ROW_SPACING), PANEL_SIZE.x - 116.0)
 	_labels[Item.RESUME].text = "Resume"
 	_labels[Item.RESTART].text = "Restart Song"
+	_labels[Item.CHART_EDITOR].text = "Chart Editor"
 	Ui.text(root, "↑↓ / D-PAD Choose     Enter / A Select     B / Start Resume", Rect2(origin.x + 35.0, origin.y + PANEL_SIZE.y - 58.0, PANEL_SIZE.x - 70.0, 30.0), 15, HINT_COLOR, false, HORIZONTAL_ALIGNMENT_CENTER)
 
 

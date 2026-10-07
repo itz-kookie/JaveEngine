@@ -56,7 +56,7 @@ For a hold, hit the head normally and keep the lane held until `timeMs + lengthM
 
 ## In-game chart editor
 
-Press `7` while a song is playing. The song pauses and the editor works on a copy of the chart. The grid shows opponent lanes on the left and player lanes on the right; snap is a sixteenth note at the chart's BPM.
+Press `7` while a song is playing, or choose **Chart Editor** from the pause menu. The song stays paused while the editor works on a copy of the chart; closing the editor returns to the pause menu if it was opened there. The grid shows opponent lanes on the left and player lanes on the right; snap is a sixteenth note at the chart's BPM.
 
 - Mouse wheel over the grid: scroll through time.
 - Left-click the grid: add a note there (or update the hold length of a note already there).

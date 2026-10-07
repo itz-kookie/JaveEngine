@@ -8,8 +8,8 @@ A four-lane rhythm game built with Godot 4.7 and GDScript, with Lua 5.4 mod scri
 - JSON songs and charts with player/opponent notes, holds, judgements, scoring, health and camera events.
 - Animated PNG characters, stage layouts, health icons and an optional speaker prop attached to a character.
 - Ogg Vorbis song audio, with WAV (PCM, float, Microsoft ADPCM) and MP3 also accepted; Ogg Theora cutscenes in Story Mode.
-- Pause menu with Resume, Restart Song and Botplay.
-- In-song chart editor (press `7`).
+- Pause menu with Resume, Restart Song, Chart Editor and Botplay.
+- In-song chart editor (press `7` or open it from the pause menu).
 - Lua hooks and mod packages that can add songs, weeks, stages, cutscenes, note art and scripts; packs are dropped into the user mods folder or imported as a .zip from the Mods screen (from a file or a URL) on desktop and mobile.
 - Basic touch controls.
 - 1280x720 canvas scaled to the window, keeping its aspect ratio.
@@ -34,7 +34,7 @@ godot --path godot -- --botplay # start songs with Botplay on
 | --- | --- |
 | Menus | Up/Down or W/S, or a gamepad D-pad/left stick; Left/Right adjusts; Enter/A confirms; Escape/B goes back. Touch uses row taps and swipes. |
 | Song | D F J K or gamepad X A Y B for Left/Down/Up/Right (both rebindable in Options); Enter/Start pauses; Escape/gamepad Back leaves; `7` opens the chart editor. Touch devices show four full-screen lanes with visible arrow buttons. |
-| Pause menu | Up/Down or D-pad/left stick; Enter/A selects; Escape/B/Start resumes. Touch uses row taps and swipes. |
+| Pause menu | Up/Down or D-pad/left stick; Enter/A selects; Escape/B/Start resumes. Choose Chart Editor to edit the current song. Touch uses row taps and swipes. |
 | Cutscene | Enter, Space or gamepad A skips; Escape/B returns to Story Mode. |
 
 ## Project layout
