@@ -60,14 +60,16 @@ Contents:
 
 ## Export
 
-Presets for macOS, Windows Desktop, Linux, Android and iOS are in `godot/export_presets.cfg` and write to `build/godot/<platform>/`.
+Presets for macOS, Windows Desktop, Linux, Web, Android and iOS are in `godot/export_presets.cfg` and write to `build/godot/<platform>/`.
 
 The version shown in the game and stamped into exports is `application/config/version` in `godot/project.godot`; the presets leave their version fields empty so they use it. Android's integer `version/code` is set separately in its preset.
 
 ```sh
 mkdir -p build/godot/linux
-$GODOT --headless --path godot --export-release Linux build/godot/linux/JaveEngine.x86_64
+$GODOT --headless --path godot --export-release Linux ../build/godot/linux/JaveEngine.x86_64
 ```
+
+Output paths are relative to `godot/`, so `../build/...` lands in the repo's `build/` folder.
 
 The `jave_content_export` plugin adds every file under `godot/content/` that matches the preset's include filter (`content/*.json, *.png, *.wav, *.ogg, *.mp3, *.lua, *.ogv`) and not its exclude filter (a local `content/config/settings.json` is never packed).
 
@@ -76,6 +78,10 @@ Song WAVs in the content folders are packed as they are and make builds large. R
 **The export packs everything present in the content folders, including locally imported and gitignored songs, art and videos.** An export made from a working copy with imported FNF or other third-party media contains that media. Export from a clean checkout, or remove the imported files first, before distributing a build.
 
 Exported builds do not include `LICENSE`, `THIRD_PARTY_NOTICES.md` or `licenses/`; ship them alongside the build.
+
+### Web
+
+The Web preset is a threaded build with GDExtension support, so the host must send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` on every response and serve `.wasm` as `application/wasm`. The content pack is one `index.pck`; a static host with a per-file size cap (Cloudflare Workers assets allow 25 MiB) needs the pack kept small or served from elsewhere. The Mods screen importer is not available on web.
 
 ### Android
 
