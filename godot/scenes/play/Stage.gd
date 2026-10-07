@@ -3,6 +3,7 @@ extends Node2D
 
 const STAGE_SIZE := Vector2(1280.0, 720.0)
 const STAGE_CENTER := STAGE_SIZE * 0.5
+const DEATH_FADE_SECONDS := 0.7
 
 @onready var _background: Sprite2D = $Background
 @onready var _girlfriend: StageCharacter = $Girlfriend
@@ -50,6 +51,24 @@ func update_view(play: Gameplay) -> void:
 		var player_seconds := idle_seconds if play.player_pose < 0 else (song_ms - play.player_animation_ms) / 1000.0
 		_player.show_pose(play.player_pose, player_seconds, song_ms, beat_ms, ModHost.player_flip)
 	_update_camera(play)
+
+
+func death_animation_duration() -> float:
+	if _player.visible and _player.has_death_animation():
+		return clampf(_player.death_animation_duration(), 0.7, 4.0)
+	return DEATH_FADE_SECONDS
+
+
+func show_death(seconds: float, play: Gameplay) -> void:
+	if not _player.visible:
+		return
+	if _player.has_death_animation():
+		var beat_ms := Conductor.beat_ms(play.chart.bpm)
+		_player.show_pose(StageCharacter.DEATH_POSE, seconds, play.song_time_ms, beat_ms, ModHost.player_flip)
+	else:
+		var color := _player.modulate
+		color.a = clampf(1.0 - seconds / DEATH_FADE_SECONDS, 0.0, 1.0)
+		_player.modulate = color
 
 
 ## Matches screen = (world - centre) * zoom + centre + pan.

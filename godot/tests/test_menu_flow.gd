@@ -29,6 +29,7 @@ func _run() -> void:
 	_check_grades()
 	await _check_empty_content()
 	await _check_story_weeks()
+	await _check_game_over_retry_and_exit()
 	_main.queue_free()
 	# Let the audio server release stopped playbacks before quitting.
 	await create_timer(0.2).timeout
@@ -172,6 +173,47 @@ func _check_story_weeks() -> void:
 	_press(KEY_ESCAPE)
 	await process_frame
 	_expect_screen("TITLE")
+
+
+func _check_game_over_retry_and_exit() -> void:
+	_press(KEY_DOWN)
+	_press(KEY_ENTER)
+	_expect_screen("FREEPLAY")
+	await _wait_frames(2)
+	_press(KEY_ENTER)
+	_expect_screen("PLAY")
+	var first_play: Node = _main.call("current_play")
+	await _wait_until_playing(first_play)
+	var first_song_id: String = first_play.song.id
+	var gameplay: Gameplay = first_play.get("gameplay")
+	gameplay.botplay = true
+	_trigger_game_over(first_play, gameplay)
+	await _wait_frames(2)
+	_expect_screen("GAME_OVER")
+	check(not root.get_node("/root/Conductor").get("running"), "audio stops during game over")
+	var game_over_menu: MenuScreen = _main.get("_menu")
+	check(game_over_menu.selection == 0, "retry is selected by default")
+	check(game_over_menu.row(0).text == "Retry", "first game-over action retries")
+	_press(KEY_ENTER)
+	_expect_screen("PLAY")
+	var retried_play: Node = _main.call("current_play")
+	check(retried_play != first_play and retried_play.song.id == first_song_id, "retry creates a fresh play of the same song")
+	await _wait_until_playing(retried_play)
+	check(retried_play.get("gameplay").botplay, "retry preserves the play mode")
+	_trigger_game_over(retried_play, retried_play.get("gameplay"))
+	await _wait_frames(2)
+	_expect_screen("GAME_OVER")
+	_press(KEY_DOWN)
+	_press(KEY_ENTER)
+	_expect_screen("FREEPLAY")
+
+
+func _trigger_game_over(play: Node, gameplay: Gameplay) -> void:
+	gameplay.health = 0.075
+	gameplay.call("_register_miss", "MISS", 0.075, 0)
+	play.call("_step", 1.0 / 60.0)
+	check(play.call("is_dying"), "zero health starts the death sequence")
+	_press(KEY_ENTER)
 
 
 func _wait_until_playing(play: Node) -> void:

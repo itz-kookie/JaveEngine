@@ -3,6 +3,7 @@ extends Node2D
 
 const STAGE_SIZE := Vector2(1280.0, 720.0)
 const DANCE_RIGHT_POSE := 4
+const DEATH_POSE := SpriteFramesBuilder.DEATH_POSE
 
 @onready var _speaker: AnimatedSprite2D = $Speaker
 @onready var _body: AnimatedSprite2D = $Body
@@ -103,6 +104,16 @@ func show_pose(pose: int, animation_seconds: float, song_ms: float, beat_ms: flo
 		if speaker_frame != _speaker.frame:
 			_speaker.frame = speaker_frame
 			_speaker_size = _refit_if_resized(_speaker, _speaker_rect, _speaker_size)
+
+
+func has_death_animation() -> bool:
+	var slot := SpriteFramesBuilder.pose_slot(DEATH_POSE)
+	return _pose_frame_counts.size() > slot and _pose_frame_counts[slot] > 0
+
+
+func death_animation_duration() -> float:
+	var slot := SpriteFramesBuilder.pose_slot(DEATH_POSE)
+	return float(_pose_frame_counts[slot]) / _pose_fps[slot] if has_death_animation() else 0.0
 
 
 func _switch_slot(slot: int) -> void:

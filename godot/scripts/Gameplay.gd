@@ -31,6 +31,8 @@ var combo := 0
 var max_combo := 0
 var misses := 0
 var health := 0.5
+var fail_on_zero := false
+var failed := false
 var accuracy_points := 0.0
 var judged_count := 0
 var sick_count := 0
@@ -90,6 +92,8 @@ func is_finished() -> bool:
 
 ## Advances the clock and timers; when botplay is on, also hits due notes.
 func begin_frame(dt: float, now_ms: float) -> void:
+	if fail_on_zero and failed:
+		return
 	song_time_ms = now_ms
 	rating_life = maxf(0.0, rating_life - dt)
 	player_pose_life = maxf(0.0, player_pose_life - dt)
@@ -107,6 +111,8 @@ func begin_frame(dt: float, now_ms: float) -> void:
 
 
 func end_frame(dt: float, held_mask: int) -> void:
+	if fail_on_zero and failed:
+		return
 	_apply_camera_events()
 	_ease_camera(dt)
 	_update_notes(dt, held_mask)
@@ -116,7 +122,7 @@ func end_frame(dt: float, held_mask: int) -> void:
 func _auto_hit_player_notes() -> void:
 	var index := cursors.first_unjudged
 	var count := chart.note_count()
-	while index < count and chart.times[index] <= song_time_ms:
+	while index < count and chart.times[index] <= song_time_ms and not (fail_on_zero and failed):
 		if chart.is_player(index) and chart.flags[index] & (ChartData.HEAD_HIT | ChartData.JUDGED) == 0:
 			judge_lane(chart.lanes[index], song_time_ms)
 		index += 1
@@ -139,6 +145,8 @@ func find_judge_target(lane: int, at_ms: float) -> int:
 
 
 func judge_lane(lane: int, at_ms: float) -> void:
+	if fail_on_zero and failed:
+		return
 	var index := find_judge_target(lane, at_ms)
 	if index < 0:
 		return
@@ -224,7 +232,7 @@ func _camera_target() -> Vector2:
 func _update_notes(dt: float, held_mask: int) -> void:
 	var index := cursors.first_unjudged
 	var count := chart.note_count()
-	while index < count and chart.times[index] - song_time_ms < NOTE_UPDATE_AHEAD_MS:
+	while index < count and chart.times[index] - song_time_ms < NOTE_UPDATE_AHEAD_MS and not (fail_on_zero and failed):
 		if not chart.has_flag(index, ChartData.JUDGED):
 			if chart.is_player(index):
 				_update_player_note(index, dt, held_mask)
@@ -288,6 +296,8 @@ func _register_miss(label: String, health_loss: float, lane: int) -> void:
 	judged_count += 1
 	combo = 0
 	health = maxf(0.0, health - health_loss)
+	if fail_on_zero and health <= 0.0:
+		failed = true
 	last_rating = label
 	rating_life = RATING_SECONDS
 	note_judged.emit(lane, "miss")

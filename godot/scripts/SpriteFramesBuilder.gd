@@ -1,13 +1,14 @@
 class_name SpriteFramesBuilder
 extends RefCounted
 
-const POSE_NAMES: Array[StringName] = [&"idle", &"left", &"down", &"up", &"right", &"danceRight"]
+const POSE_NAMES: Array[StringName] = [&"idle", &"left", &"down", &"up", &"right", &"danceRight", &"death"]
+const DEATH_POSE := 5
 const DEFAULT_FPS := 24.0
 
 
-## Maps gameplay poses (-1 idle, 0-3 lanes, 4 danceRight) to POSE_NAMES slots.
+## Maps gameplay poses (-1 idle, 0-3 lanes, 4 danceRight, 5 death) to POSE_NAMES slots.
 static func pose_slot(pose: int) -> int:
-	return clampi(pose + 1, 0, POSE_NAMES.size() - 1)
+	return POSE_NAMES.size() - 1 if pose == DEATH_POSE else clampi(pose + 1, 0, POSE_NAMES.size() - 2)
 
 
 static func frame_paths(base: String, pose_name: String) -> PackedStringArray:

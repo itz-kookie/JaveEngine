@@ -59,6 +59,7 @@ Each role is placed independently; moving, hiding or replacing one character nev
   idle/frame_0000.png ...
   left/  down/  up/  right/
   danceRight/        optional
+  death/             optional; played when health reaches zero
 ```
 
 Each pose is a folder of `frame_*.png` files (played in name order) or a single `<pose>.png`. `animation.json`:
@@ -76,6 +77,7 @@ Each pose is a folder of `frame_*.png` files (played in name order) or a single 
 - `flipX`: the art faces the other way. The player role is mirrored relative to the other roles, and `flipX` inverts that; Lua's `jave_set_player_flip` mirrors the player again.
 - Per pose: `width`, `height` (layout box; default to the idle size, 420x500 if missing), `fps` (default 24, 1–120), `loop` (default true for `idle` only).
 - If `danceRight` has `"frames"` greater than 0, idle alternates between `idle` and `danceRight` on successive beats.
+- If `death` has frames, it plays when the player runs out of health. Its `loop` setting defaults to `false`; without it, the player fades out.
 - `speaker`: attaches a prop below the character; see [Nene and the attached speaker](NENE_SPEAKER.md).
 
 When the opponent and girlfriend use the same folder, the frames are loaded once and shared by both roles; set `hideGirlfriend` to show only the opponent.

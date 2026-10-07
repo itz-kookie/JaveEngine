@@ -2,9 +2,10 @@ class_name PlayScene
 extends Node2D
 
 signal finished(play: Gameplay)
+signal game_over(play: Gameplay)
 signal failed(message: String)
 
-enum State { LOADING, PLAYING, DONE }
+enum State { LOADING, PLAYING, DYING, DONE }
 
 var song: SongMeta
 var botplay := false
@@ -12,6 +13,8 @@ var gameplay: Gameplay
 var state := State.LOADING
 
 var _assets: SongAssets
+var _death_elapsed := 0.0
+var _death_duration := 0.0
 
 @onready var _stage: PlayStage = $Stage
 @onready var _strumline: Strumline = $Overlay/Strumline
@@ -26,6 +29,7 @@ func _ready() -> void:
 		return
 	gameplay = Gameplay.new(chart, song)
 	gameplay.botplay = botplay
+	gameplay.fail_on_zero = true
 	gameplay.note_judged.connect(ModHost.note_hit)
 	_assets = SongAssets.new(song)
 	_assets.start_loading()
@@ -38,10 +42,26 @@ func _process(delta: float) -> void:
 				_start()
 		State.PLAYING:
 			_step(delta)
+		State.DYING:
+			_step_death(delta)
+
+
+func _input(event: InputEvent) -> void:
+	if not is_dying():
+		return
+	var touch := event as InputEventScreenTouch
+	var key := MenuInput.key_of(event)
+	if (touch != null and touch.pressed) or MenuInput.is_confirm(key) or MenuInput.is_back(key):
+		get_viewport().set_input_as_handled()
+		skip_death()
 
 
 func is_playing() -> bool:
 	return state == State.PLAYING
+
+
+func is_dying() -> bool:
+	return state == State.DYING
 
 
 func refresh() -> void:
@@ -75,8 +95,41 @@ func _step(delta: float) -> void:
 	_judge_presses()
 	gameplay.end_frame(delta, LaneInput.held_mask)
 	_render()
+	if gameplay.failed:
+		_begin_death()
+		return
 	if gameplay.is_finished():
 		_finish()
+
+
+func _begin_death() -> void:
+	if state != State.PLAYING:
+		return
+	Conductor.stop()
+	LaneInput.clear()
+	state = State.DYING
+	_death_elapsed = 0.0
+	_death_duration = _stage.death_animation_duration()
+	_stage.show_death(_death_elapsed, gameplay)
+
+
+func _step_death(delta: float) -> void:
+	_death_elapsed += delta
+	_stage.show_death(_death_elapsed, gameplay)
+	if _death_elapsed >= _death_duration:
+		_finish_game_over()
+
+
+func skip_death() -> void:
+	if is_dying():
+		_finish_game_over()
+
+
+func _finish_game_over() -> void:
+	if state != State.DYING:
+		return
+	state = State.DONE
+	game_over.emit(gameplay)
 
 
 func _judge_presses() -> void:

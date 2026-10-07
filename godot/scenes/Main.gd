@@ -1,6 +1,6 @@
 extends Node
 
-enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS, CHART_EDITOR, CUTSCENE }
+enum Screen { TITLE, STORY, FREEPLAY, MODS, OPTIONS, CREDITS, PLAY, PAUSED, RESULTS, GAME_OVER, CHART_EDITOR, CUTSCENE }
 
 const PLAY_SCENE: PackedScene = preload("res://scenes/play/PlayScene.tscn")
 const CHART_EDITOR_SCENE: PackedScene = preload("res://scenes/editor/ChartEditor.tscn")
@@ -12,6 +12,8 @@ var playing_story := false
 var story_queue: Array[SongMeta] = []
 var story_position := 0
 var last_result: Gameplay
+var _retry_song: SongMeta
+var _retry_botplay := false
 
 var _menu: MenuScreen
 var _play: PlayScene
@@ -66,7 +68,8 @@ func current_cutscene() -> Cutscene:
 func _process(delta: float) -> void:
 	if _touch_back != null:
 		_touch_back.visible = screen != Screen.TITLE
-	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE:
+	if screen != Screen.PAUSED and screen != Screen.CHART_EDITOR and screen != Screen.CUTSCENE \
+			and not (screen == Screen.PLAY and _play != null and _play.is_dying()):
 		ModHost.update(delta)
 	_fps_label.visible = Settings.show_fps
 	var fps := int(Engine.get_frames_per_second())
@@ -96,6 +99,7 @@ func start_song(song: SongMeta, botplay := _default_botplay) -> void:
 	play.song = song
 	play.botplay = botplay
 	play.finished.connect(_on_song_finished.bind(play.get_instance_id()), CONNECT_DEFERRED)
+	play.game_over.connect(_on_game_over.bind(play.get_instance_id()), CONNECT_DEFERRED)
 	play.failed.connect(_on_song_failed.bind(play.get_instance_id()), CONNECT_DEFERRED)
 	_play = play
 	screen = Screen.PLAY
@@ -185,6 +189,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if screen != Screen.PLAY:
 		return
 	var key := MenuInput.key_of(event)
+	if _play.is_dying():
+		return
 	if (key == KEY_7 or key == KEY_KP_7) and _play.is_playing():
 		get_viewport().set_input_as_handled()
 		open_chart_editor()
@@ -218,6 +224,26 @@ func _on_song_finished(result: Gameplay, play_id: int) -> void:
 	last_result = result
 	if not _start_cutscene(_play.song, true):
 		switch_screen(Screen.RESULTS)
+
+
+func _on_game_over(result: Gameplay, play_id: int) -> void:
+	if not _is_current_play(play_id):
+		return
+	last_result = result
+	_retry_song = _play.song
+	_retry_botplay = result.botplay
+	switch_screen(Screen.GAME_OVER)
+
+
+func _retry_game_over() -> void:
+	if _retry_song != null:
+		start_song(_retry_song, _retry_botplay)
+	else:
+		_leave_song()
+
+
+func _exit_game_over() -> void:
+	_leave_song()
 
 
 ## Cutscenes only play in story mode; false when the song has none or its video cannot be opened.
@@ -319,6 +345,13 @@ func _create_menu(next: Screen) -> MenuScreen:
 			results.action_text = _results_action()
 			results.continue_requested.connect(_continue_from_results)
 			return _with_back(results)
+		Screen.GAME_OVER:
+			var game_over := GameOverScreen.new()
+			game_over.song_title = _retry_song.title if _retry_song != null else ""
+			game_over.retry_requested.connect(_retry_game_over)
+			game_over.exit_requested.connect(_exit_game_over)
+			game_over.back_requested.connect(_exit_game_over)
+			return game_over
 	return _with_back(CreditsScreen.new())
 
 

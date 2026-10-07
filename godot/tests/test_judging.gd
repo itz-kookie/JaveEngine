@@ -10,6 +10,7 @@ func run() -> void:
 	_test_completed_hold()
 	_test_hold_break()
 	_test_health_clamps()
+	_test_health_failure_lock()
 	_test_opponent_auto_hit()
 	_test_botplay()
 
@@ -113,6 +114,20 @@ func _test_health_clamps() -> void:
 	play.begin_frame(FRAME, 2200.0)
 	play.end_frame(FRAME, 0)
 	check_near(play.health, 0.0, "health clamps at 0")
+
+
+func _test_health_failure_lock() -> void:
+	var play := _make_play([{"timeMs": 1000, "lane": 0}, {"timeMs": 1200, "lane": 1, "lengthMs": 500}])
+	play.fail_on_zero = true
+	play.health = 0.075
+	play.begin_frame(FRAME, 1181.0)
+	play.end_frame(FRAME, 0)
+	check(play.failed and is_zero_approx(play.health), "zero health locks gameplay as failed")
+	var score_before := play.score
+	play.begin_frame(FRAME, 1400.0)
+	play.judge_lane(1, 1200.0)
+	play.end_frame(FRAME, 1 << 1)
+	check(play.score == score_before and play.health == 0.0, "failed gameplay cannot judge or recover from a hold")
 
 
 func _test_opponent_auto_hit() -> void:
