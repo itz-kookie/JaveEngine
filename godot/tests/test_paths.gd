@@ -23,6 +23,7 @@ func run() -> void:
 	_paths_script = load("res://autoload/Paths.gd")
 	_content_script = load("res://autoload/Content.gd")
 	_remove_tree(TEMP_DIR)
+	_test_isolated_user_root()
 	_test_first_run_layout()
 	_test_defaults_come_from_shipped_config()
 	_test_ogg_preference()
@@ -30,6 +31,17 @@ func run() -> void:
 	_test_user_imported_weeks()
 	_remove_tree(TEMP_DIR)
 	check(not DirAccess.dir_exists_absolute(TEMP_DIR), "temporary directory removed")
+
+
+func _test_isolated_user_root() -> void:
+	var paths := root.get_node("/root/Paths")
+	var content := root.get_node("/root/Content")
+	var settings := root.get_node("/root/Settings")
+	check(paths.call("user", "mods") == TEST_HOME + "/mods", "tests read user files from the test home")
+	check(paths.call("user_mirror", "res://content/data/weeks.json") == TEST_HOME + "/content/data/weeks.json", "content overrides come from the test home")
+	check(not (content.get("mod_roots") as PackedStringArray).has("user://mods"), "the player's mods folder is not scanned")
+	check(content.get("mod_overrides_path") == TEST_HOME + "/config/mods.json", "mod states come from the test home")
+	check(settings.get("save_path") == TEST_HOME + "/config/settings.json", "settings come from the test home")
 
 
 func _test_first_run_layout() -> void:
@@ -51,7 +63,7 @@ func _test_defaults_come_from_shipped_config() -> void:
 	settings.load_file(TEMP_DIR.path_join("settings.json"))
 	check_near(settings.note_speed, 1.5, "user settings override the defaults")
 	check_near(settings.master_volume, 0.8, "shipped defaults fill what user settings leave out")
-	check(not FileAccess.file_exists("user://config/default.json"), "no copy of the defaults is made under user://")
+	check(not FileAccess.file_exists(TEST_HOME + "/config/default.json"), "no copy of the defaults is made under user://")
 	settings.free()
 
 
@@ -99,9 +111,9 @@ func _test_week_merging() -> void:
 
 func _test_user_imported_weeks() -> void:
 	var content: Node = root.get_node("/root/Content")
-	var user_file := "user://content/data/weeks.imported.json"
+	var user_file := TEST_HOME + "/content/data/weeks.imported.json"
 	var backup := FileAccess.get_file_as_string(user_file) if FileAccess.file_exists(user_file) else ""
-	var created_dirs := not DirAccess.dir_exists_absolute("user://content")
+	var created_dirs := not DirAccess.dir_exists_absolute(TEST_HOME + "/content")
 	DirAccess.make_dir_recursive_absolute(user_file.get_base_dir())
 	_write(user_file, JSON.stringify({"weeks": [
 		{"id": "zz-user-week", "name": "User Week", "songs": ["neon-steps"]},
@@ -123,7 +135,7 @@ func _test_user_imported_weeks() -> void:
 	else:
 		_write(user_file, backup)
 	if created_dirs:
-		_remove_tree("user://content")
+		_remove_tree(TEST_HOME + "/content")
 	content.call("scan")
 	var restored := PackedStringArray()
 	for week: WeekMeta in content.get("weeks"):

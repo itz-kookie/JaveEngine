@@ -92,9 +92,10 @@ func _place_button(sprite: AnimatedSprite2D, asset: CharacterAsset, box: Rect2, 
 static func _load_button(index: int) -> CharacterAsset:
 	if index >= BUTTON_IDS.size():
 		return null
-	var asset := CharacterAsset.new(Ui.MENUS_ROOT.path_join("buttons").path_join(BUTTON_IDS[index]))
-	if not FileAccess.file_exists(asset.base.path_join("animation.json")):
+	var metadata := Ui.menu_asset("buttons/%s/animation.json" % BUTTON_IDS[index])
+	if metadata.is_empty():
 		return null
+	var asset := CharacterAsset.new(metadata.get_base_dir())
 	asset.load_from_disk()
 	if asset.pose_metadata("idle").is_empty():
 		return null

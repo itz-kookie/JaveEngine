@@ -37,6 +37,8 @@ Each `godot/tests/test_*.gd` except `test_base.gd` (the shared harness) is a run
 
 `test_play_scene` plays Neon Steps under Botplay in real time and takes about 30 seconds.
 
+Tests use `user://test-home/` in place of `user://` for mods, mod states, settings and `user://content` overrides, so installed mods and saved settings neither affect them nor are changed by them. The folder is emptied when a test starts and removed when it ends. The log is still written to `user://saves/jave.log`.
+
 ## User data
 
 Writable data lives in Godot's `user://` folder:

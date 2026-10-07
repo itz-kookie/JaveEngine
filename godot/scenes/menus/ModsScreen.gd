@@ -23,7 +23,7 @@ const ENABLED_COLOR := Color8(105, 235, 176)
 const DISABLED_COLOR := Color8(255, 135, 160)
 
 var mode := Mode.LIST
-var mods_dir := ModPackImporter.MODS_DIR
+var mods_dir := Paths.user("mods")
 
 var _name: Label
 var _byline: Label

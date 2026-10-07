@@ -5,11 +5,15 @@ const SCREEN_SIZE := Vector2(1280.0, 720.0)
 const BAR_COLOR := Color8(22, 18, 31)
 const BAR_TEXT_COLOR := Color8(245, 235, 255)
 const WHITE := Color8(250, 250, 255)
-const MENUS_ROOT := "res://content/assets/imported/menus"
+const MENUS_FOLDER := "assets/imported/menus"
+const MENUS_ROOT := "res://content/" + MENUS_FOLDER
 
 static var accent := Color8(95, 227, 255)
 static var accent2 := Color8(255, 81, 170)
 static var _bold_font: SystemFont
+## Set by Content.scan(); until then only the user://content copy and the base content are searched.
+static var _menu_folders := PackedStringArray(["user://content/" + MENUS_FOLDER, MENUS_ROOT])
+static var _menu_assets: Dictionary[String, String] = {}
 
 
 static func version() -> String:
@@ -93,7 +97,29 @@ static func fit_image(image: TextureRect, texture: Texture2D, rect: Rect2) -> vo
 
 
 static func menu_texture(relative: String) -> Texture2D:
-	return TextureCache.get_texture(MENUS_ROOT.path_join(relative))
+	return TextureCache.get_texture(menu_asset(relative))
+
+
+## The first copy of a menu art file (relative to assets/imported/menus) in the menu folders, or empty when none has it.
+## Remembered per path until the folders are set again.
+static func menu_asset(relative: String) -> String:
+	if _menu_assets.has(relative):
+		return _menu_assets[relative]
+	var found := ""
+	for folder in _menu_folders:
+		var candidate := folder.path_join(relative)
+		if FileAccess.file_exists(candidate):
+			found = candidate
+			break
+	_menu_assets[relative] = found
+	return found
+
+
+## Replaces the menu art search order and forgets every earlier lookup, including the loaded alphabet.
+static func use_menu_folders(folders: PackedStringArray) -> void:
+	_menu_folders = folders
+	_menu_assets.clear()
+	FunkinLabel.forget_glyphs()
 
 
 ## Header used by the main menu family: dark bar, alphabet title and a subtitle line.

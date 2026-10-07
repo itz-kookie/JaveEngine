@@ -1,20 +1,17 @@
-extends SceneTree
+extends "res://tests/test_base.gd"
 
 ## Cutscene manifest parsing and the story flow around before/after videos.
 ## Headless builds cannot rely on a decodable video, so most flows use a corrupt .ogv that opens but never starts.
-const MANIFEST_MIRROR := "user://content/data/cutscenes.json"
-const VIDEO_DIR := "user://content/test-cutscenes"
+const USER_CONTENT := TEST_HOME + "/content/"
+const MANIFEST_MIRROR := USER_CONTENT + "data/cutscenes.json"
+const VIDEO_DIR := USER_CONTENT + "test-cutscenes"
 const CORRUPT_VIDEO := "test-cutscenes/corrupt.ogv"
 const REAL_VIDEO := "test-cutscenes/real.ogv"
 const FINISH_TIMEOUT_FRAMES := 600
-const MOD_ROOT := "user://mods/zz-cutscene-test-mod"
+const MOD_ROOT := TEST_HOME + "/mods/zz-cutscene-test-mod"
 const MOD_SONG := "zz-cutscene-mod-song"
 
-var _checks := 0
-var _failures := 0
 var _main: Node
-var _saved_manifest := ""
-var _had_manifest := false
 
 
 func _initialize() -> void:
@@ -24,7 +21,6 @@ func _initialize() -> void:
 func _run() -> void:
 	await process_frame
 	_check_manifest_parsing()
-	_backup_manifest()
 	DirAccess.make_dir_recursive_absolute(VIDEO_DIR)
 	_write(VIDEO_DIR.path_join("corrupt.ogv"), "not a theora stream")
 	_write(VIDEO_DIR.path_join("empty.ogv"), "")
@@ -44,25 +40,24 @@ func _run() -> void:
 	await _check_outro(song)
 	await _check_real_video(song)
 	_main.queue_free()
-	_cleanup()
 	await create_timer(0.2).timeout
-	_finish()
+	super._initialize()
 
 
 func _check_manifest_parsing() -> void:
 	var manifest := {"a": {"before": "videos/a.ogv", "after": "videos/a-end.ogv"}, "b": {"before": 3}, "c": "x"}
-	_check(CutsceneManifest.relative_path(manifest, "a", false) == "videos/a.ogv", "before path read")
-	_check(CutsceneManifest.relative_path(manifest, "a", true) == "videos/a-end.ogv", "after path read")
-	_check(CutsceneManifest.relative_path(manifest, "b", false) == "", "non-string path ignored")
-	_check(CutsceneManifest.relative_path(manifest, "b", true) == "", "missing side ignored")
-	_check(CutsceneManifest.relative_path(manifest, "c", false) == "", "non-object entry ignored")
-	_check(CutsceneManifest.relative_path(manifest, "zzz", false) == "", "unknown song ignored")
-	_check(CutsceneManifest.relative_path(null, "a", false) == "", "missing manifest ignored")
+	check(CutsceneManifest.relative_path(manifest, "a", false) == "videos/a.ogv", "before path read")
+	check(CutsceneManifest.relative_path(manifest, "a", true) == "videos/a-end.ogv", "after path read")
+	check(CutsceneManifest.relative_path(manifest, "b", false) == "", "non-string path ignored")
+	check(CutsceneManifest.relative_path(manifest, "b", true) == "", "missing side ignored")
+	check(CutsceneManifest.relative_path(manifest, "c", false) == "", "non-object entry ignored")
+	check(CutsceneManifest.relative_path(manifest, "zzz", false) == "", "unknown song ignored")
+	check(CutsceneManifest.relative_path(null, "a", false) == "", "missing manifest ignored")
 	for safe: String in ["videos/a.ogv", "a.ogv", "videos/..hidden/a.ogv"]:
-		_check(CutsceneManifest.rejection(safe).is_empty(), "accepts " + safe)
+		check(CutsceneManifest.rejection(safe).is_empty(), "accepts " + safe)
 	for unsafe: String in ["../a.ogv", "videos/../../a.ogv", "videos\\..\\..\\a.ogv", "/etc/a.ogv", "\\a.ogv",
 			"C:\\a.ogv", "C:a.ogv", "user://a.ogv", "res://a.ogv"]:
-		_check(not CutsceneManifest.rejection(unsafe).is_empty(), "rejects " + unsafe)
+		check(not CutsceneManifest.rejection(unsafe).is_empty(), "rejects " + unsafe)
 
 
 func _check_content_paths() -> void:
@@ -72,19 +67,17 @@ func _check_content_paths() -> void:
 		"s2": {"before": "../outside.ogv", "after": "/abs.ogv"},
 		"s3": {"before": ""},
 	})
-	_check(content.call("cutscene_path", "s1", false) == "user://content/" + CORRUPT_VIDEO, "user mirror video wins")
-	_check(content.call("cutscene_path", "s1", true) == "res://content/videos/shipped.ogv", "relative path resolves against content root")
-	_check(content.call("cutscene_path", "s2", false) == "", "traversal rejected")
-	_check(content.call("cutscene_path", "s2", true) == "", "absolute path rejected")
-	_check(content.call("cutscene_path", "s3", false) == "", "empty path has no cutscene")
-	_check(content.call("cutscene_path", "s4", false) == "", "song without entry has no cutscene")
+	check(content.call("cutscene_path", "s1", false) == USER_CONTENT + CORRUPT_VIDEO, "user mirror video wins")
+	check(content.call("cutscene_path", "s1", true) == "res://content/videos/shipped.ogv", "relative path resolves against content root")
+	check(content.call("cutscene_path", "s2", false) == "", "traversal rejected")
+	check(content.call("cutscene_path", "s2", true) == "", "absolute path rejected")
+	check(content.call("cutscene_path", "s3", false) == "", "empty path has no cutscene")
+	check(content.call("cutscene_path", "s4", false) == "", "song without entry has no cutscene")
 
 
 ## A mod's data/cutscenes.json resolves against the mod; the song's own package is asked first, then the base content, then other mods.
 func _check_mod_manifests() -> void:
 	var content := root.get_node("/root/Content")
-	var saved_overrides: String = content.get("mod_overrides_path")
-	content.set("mod_overrides_path", "user://zz-cutscene-test-overrides.json")
 	_write_mod()
 	_write_manifest({
 		MOD_SONG: {"before": "videos/root-before.ogv", "after": "videos/root-after.ogv"},
@@ -93,22 +86,20 @@ func _check_mod_manifests() -> void:
 	})
 	content.call("scan")
 	var song: SongMeta = content.call("find_song", MOD_SONG)
-	_check(song != null and song.package_root == MOD_ROOT, "mod song is scanned with its package root")
-	_check(content.call("cutscene_path", MOD_SONG, false) == MOD_ROOT.path_join("videos/intro.ogv"), "a mod song uses its own manifest first, resolved against the mod")
-	_check(content.call("cutscene_path", MOD_SONG, true) == "", "traversal in a mod manifest is rejected")
-	_check(content.call("cutscene_path", "s1", false) == "user://content/" + CORRUPT_VIDEO, "base content manifest wins for songs outside the mod")
-	_check(content.call("cutscene_path", "zz-only-in-mod", false) == MOD_ROOT.path_join("videos/only.ogv"), "other enabled mods are asked after the base content")
-	_check(content.call("cutscene_path", "neon-steps", true) == MOD_ROOT.path_join("videos/neon-after.ogv"), "a base song can take its cutscene from a mod")
-	_check(content.call("cutscene_path", "zz-absolute", false) == "", "absolute path in a mod manifest is rejected")
+	check(song != null and song.package_root == MOD_ROOT, "mod song is scanned with its package root")
+	check(content.call("cutscene_path", MOD_SONG, false) == MOD_ROOT.path_join("videos/intro.ogv"), "a mod song uses its own manifest first, resolved against the mod")
+	check(content.call("cutscene_path", MOD_SONG, true) == "", "traversal in a mod manifest is rejected")
+	check(content.call("cutscene_path", "s1", false) == USER_CONTENT + CORRUPT_VIDEO, "base content manifest wins for songs outside the mod")
+	check(content.call("cutscene_path", "zz-only-in-mod", false) == MOD_ROOT.path_join("videos/only.ogv"), "other enabled mods are asked after the base content")
+	check(content.call("cutscene_path", "neon-steps", true) == MOD_ROOT.path_join("videos/neon-after.ogv"), "a base song can take its cutscene from a mod")
+	check(content.call("cutscene_path", "zz-absolute", false) == "", "absolute path in a mod manifest is rejected")
 	for mod: ModInfo in content.get("mods"):
 		if mod.root == MOD_ROOT:
 			mod.enabled = false
-	_check(content.call("cutscene_path", "zz-only-in-mod", false) == "", "a disabled mod's manifest is ignored")
-	_remove_tree(MOD_ROOT)
-	DirAccess.remove_absolute("user://zz-cutscene-test-overrides.json")
-	content.set("mod_overrides_path", saved_overrides)
+	check(content.call("cutscene_path", "zz-only-in-mod", false) == "", "a disabled mod's manifest is ignored")
+	ModPackImporter.remove_tree(MOD_ROOT)
 	content.call("scan")
-	_check(content.call("find_song", MOD_SONG) == null, "temporary mod removed")
+	check(content.call("find_song", MOD_SONG) == null, "temporary mod removed")
 
 
 func _write_mod() -> void:
@@ -127,19 +118,11 @@ func _write_mod() -> void:
 	}))
 
 
-func _remove_tree(path: String) -> void:
-	for folder in DirAccess.get_directories_at(path):
-		_remove_tree(path.path_join(folder))
-	for file in DirAccess.get_files_at(path):
-		DirAccess.remove_absolute(path.path_join(file))
-	DirAccess.remove_absolute(path)
-
-
 func _check_missing_video_starts_song(song: SongMeta) -> void:
 	_write_manifest({song.id: {"before": "test-cutscenes/missing.ogv"}})
 	_main.call("start_week", _week())
 	_expect_screen("PLAY")
-	_check(_main.call("current_cutscene") == null, "missing video opens no cutscene")
+	check(_main.call("current_cutscene") == null, "missing video opens no cutscene")
 
 
 func _check_empty_video_starts_song(song: SongMeta) -> void:
@@ -149,7 +132,7 @@ func _check_empty_video_starts_song(song: SongMeta) -> void:
 	if cutscene != null:
 		cutscene.set("start_timeout_s", 0.05)
 	await _wait_for_screen("PLAY")
-	_check(_main.call("current_play").get("song") == song, "zero-byte video falls through to the song")
+	check(_main.call("current_play").get("song") == song, "zero-byte video falls through to the song")
 
 
 func _check_skip_keys(song: SongMeta) -> void:
@@ -162,19 +145,19 @@ func _check_skip_keys(song: SongMeta) -> void:
 		_press(first_lane)
 		_hold(second_lane)
 		var lane_input := root.get_node("/root/LaneInput")
-		_check(lane_input.call("has_press"), "lane press recorded during cutscene")
+		check(lane_input.call("has_press"), "lane press recorded during cutscene")
 		var cutscene: Node = _main.call("current_cutscene")
 		_press(key)
 		cutscene.call("_finish", &"timeout")
 		await process_frame
 		await process_frame
 		_expect_screen("PLAY")
-		_check(_main.call("current_play").get("song") == song, "skip with %s starts the song" % OS.get_keycode_string(key))
-		_check(not lane_input.call("has_press") and lane_input.get("held_mask") == 0, "cutscene input discarded")
+		check(_main.call("current_play").get("song") == song, "skip with %s starts the song" % OS.get_keycode_string(key))
+		check(not lane_input.call("has_press") and lane_input.get("held_mask") == 0, "cutscene input discarded")
 		_release(second_lane)
 	_press(KEY_ESCAPE)
 	_expect_screen("STORY")
-	_check(not _main.get("playing_story"), "Esc during the song after a cutscene leaves story mode")
+	check(not _main.get("playing_story"), "Esc during the song after a cutscene leaves story mode")
 
 
 func _check_cancel(song: SongMeta) -> void:
@@ -182,8 +165,8 @@ func _check_cancel(song: SongMeta) -> void:
 	_press(KEY_ESCAPE)
 	await process_frame
 	_expect_screen("STORY")
-	_check(not _main.get("playing_story") and _main.get("story_queue").is_empty(), "cancel ends story mode")
-	_check(_main.call("current_cutscene") == null and _main.call("current_play") == null, "cancel closes the cutscene")
+	check(not _main.get("playing_story") and _main.get("story_queue").is_empty(), "cancel ends story mode")
+	check(_main.call("current_cutscene") == null and _main.call("current_play") == null, "cancel closes the cutscene")
 
 
 func _check_timeout(song: SongMeta) -> void:
@@ -217,8 +200,8 @@ func _check_outro(song: SongMeta) -> void:
 	_expect_screen("PLAY")
 	await _finish_current_song()
 	_expect_screen("CUTSCENE")
-	_check(_main.get("last_result") != null, "result kept for after the outro")
-	_check(not root.get_node("/root/Conductor").get("running"), "song audio stopped during outro")
+	check(_main.get("last_result") != null, "result kept for after the outro")
+	check(not root.get_node("/root/Conductor").get("running"), "song audio stopped during outro")
 	_press(KEY_ENTER)
 	await process_frame
 	_expect_screen("RESULTS")
@@ -246,9 +229,9 @@ func _check_real_video(song: SongMeta) -> void:
 func _open_before_cutscene(song: SongMeta) -> void:
 	_main.call("start_week", _week())
 	_expect_screen("CUTSCENE")
-	_check(_main.call("current_play") == null, "song waits for the cutscene")
-	_check(not root.get_node("/root/Conductor").get("running"), "no song audio during cutscene")
-	_check(_main.get("_cutscene_song") == song, "cutscene remembers its song")
+	check(_main.call("current_play") == null, "song waits for the cutscene")
+	check(not root.get_node("/root/Conductor").get("running"), "no song audio during cutscene")
+	check(_main.get("_cutscene_song") == song, "cutscene remembers its song")
 	await process_frame
 
 
@@ -288,25 +271,6 @@ func _write(path: String, text: String) -> void:
 	file.close()
 
 
-func _backup_manifest() -> void:
-	_had_manifest = FileAccess.file_exists(MANIFEST_MIRROR)
-	if _had_manifest:
-		_saved_manifest = FileAccess.get_file_as_string(MANIFEST_MIRROR)
-
-
-func _cleanup() -> void:
-	for file in DirAccess.get_files_at(VIDEO_DIR):
-		DirAccess.remove_absolute(VIDEO_DIR.path_join(file))
-	DirAccess.remove_absolute(VIDEO_DIR)
-	if _had_manifest:
-		_write(MANIFEST_MIRROR, _saved_manifest)
-		return
-	DirAccess.remove_absolute(MANIFEST_MIRROR)
-	for dir: String in [MANIFEST_MIRROR.get_base_dir(), "user://content"]:
-		if DirAccess.get_files_at(dir).is_empty() and DirAccess.get_directories_at(dir).is_empty():
-			DirAccess.remove_absolute(dir)
-
-
 func _press(key: Key) -> void:
 	_hold(key)
 	_release(key)
@@ -329,16 +293,4 @@ func _key_event(key: Key, pressed: bool) -> void:
 
 func _expect_screen(expected: String) -> void:
 	var actual: String = _main.call("screen_name")
-	_check(actual == expected, "screen is %s (got %s)" % [expected, actual])
-
-
-func _check(condition: bool, message: String) -> void:
-	_checks += 1
-	if not condition:
-		_failures += 1
-		printerr("FAIL: " + message)
-
-
-func _finish() -> void:
-	print("test_cutscene.gd: %d checks, %d failures" % [_checks, _failures])
-	quit(1 if _failures > 0 else 0)
+	check(actual == expected, "screen is %s (got %s)" % [expected, actual])

@@ -1,8 +1,9 @@
 ## Text drawn with the imported alphabet glyphs, or a plain bold Label when they are not installed.
+## The glyph images are read from the folder of whichever alphabet/glyphs.json the menu art lookup finds.
 class_name FunkinLabel
 extends Control
 
-const FOLDER := "res://content/assets/imported/menus/alphabet"
+const GLYPHS_FILE := "alphabet/glyphs.json"
 const SPACE_WIDTH := 36.0
 const GLYPH_GAP := 7.0
 const GLYPH_HEIGHT := 80.0
@@ -11,6 +12,7 @@ const TEXT_SCALE := 0.7
 const OUTLINE_COLOR := Color8(22, 18, 31)
 
 static var _glyphs: Dictionary = {}
+static var _glyphs_folder := ""
 static var _glyphs_loaded := false
 
 var drawn_width := 0.0
@@ -39,10 +41,25 @@ func show_text(value: String, max_width: float, height: float) -> void:
 static func glyphs() -> Dictionary:
 	if not _glyphs_loaded:
 		_glyphs_loaded = true
-		var json: Variant = JsonRead.load_file(FOLDER.path_join("glyphs.json"))
+		var path := Ui.menu_asset(GLYPHS_FILE)
+		var json: Variant = JsonRead.load_file(path)
 		if json is Dictionary:
 			_glyphs = json
+			_glyphs_folder = path.get_base_dir()
 	return _glyphs
+
+
+## Folder of the loaded glyphs.json; empty when no alphabet is installed.
+static func glyphs_folder() -> String:
+	glyphs()
+	return _glyphs_folder
+
+
+## Makes the next label read the alphabet afresh, as after a mod is imported, enabled or disabled.
+static func forget_glyphs() -> void:
+	_glyphs = {}
+	_glyphs_folder = ""
+	_glyphs_loaded = false
 
 
 func _rebuild() -> void:
@@ -67,7 +84,7 @@ func _make_glyph(key: String, letter: String) -> Control:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		return label
 	var image := TextureRect.new()
-	image.texture = TextureCache.get_texture(FOLDER.path_join(file))
+	image.texture = TextureCache.get_texture(_glyphs_folder.path_join(file))
 	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.stretch_mode = TextureRect.STRETCH_SCALE
 	image.mouse_filter = Control.MOUSE_FILTER_IGNORE

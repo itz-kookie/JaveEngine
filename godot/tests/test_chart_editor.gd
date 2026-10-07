@@ -2,7 +2,7 @@ extends "res://tests/test_base.gd"
 
 const TEMP_DIR := "user://test_chart_editor_tmp"
 const OVERRIDE_SOURCE := "res://content/data/charts/__jave_editor_test__.json"
-const OVERRIDE_PATH := "user://content/data/charts/__jave_editor_test__.json"
+const OVERRIDE_PATH := TEST_HOME + "/content/data/charts/__jave_editor_test__.json"
 const NEON_STEPS := "res://content/data/charts/neon-steps.json"
 
 var _state_script: GDScript
@@ -201,7 +201,7 @@ func _test_user_override() -> void:
 	var content := root.get_node("/root/Content")
 	check(paths.call("user_mirror", OVERRIDE_SOURCE) == OVERRIDE_PATH, "shipped charts mirror into user://")
 	check(paths.call("user_mirror", "user://mods/x/data/charts/a.json") == "user://mods/x/data/charts/a.json", "user charts save in place")
-	check(paths.call("user_mirror", "res://content/mods/x/a.json") == "user://content/mods/x/a.json", "shipped mod charts stay clear of user://mods")
+	check(paths.call("user_mirror", "res://content/mods/x/a.json") == TEST_HOME + "/content/mods/x/a.json", "shipped mod charts stay clear of user://mods")
 	var song := SongMeta.new()
 	song.id = "neon-steps"
 	song.chart_path = NEON_STEPS
@@ -263,9 +263,9 @@ func _test_gameplay_takes_saved_chart() -> void:
 
 func _remove_override() -> void:
 	DirAccess.remove_absolute(OVERRIDE_PATH)
-	DirAccess.remove_absolute("user://content/data/charts")
-	DirAccess.remove_absolute("user://content/data")
-	DirAccess.remove_absolute("user://content")
+	DirAccess.remove_absolute(TEST_HOME + "/content/data/charts")
+	DirAccess.remove_absolute(TEST_HOME + "/content/data")
+	DirAccess.remove_absolute(TEST_HOME + "/content")
 
 
 func _remove_test_files() -> void:

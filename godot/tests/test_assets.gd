@@ -70,7 +70,7 @@ func _test_note_images_fall_back_to_demo() -> void:
 
 
 func _test_note_dir_order(strumline: GDScript, demo_dir: String) -> void:
-	var user_dir := "user://content/assets/imported/notes"
+	var user_dir := TEST_HOME + "/content/assets/imported/notes"
 	var base_dirs: PackedStringArray = strumline.note_dirs("res://content")
 	check(base_dirs == PackedStringArray([user_dir, "res://content/assets/imported/notes", demo_dir]),
 		"base songs look in user://content, then the content folder, then the demo arrows (got %s)" % [base_dirs])
@@ -93,7 +93,7 @@ func _test_note_dir_order(strumline: GDScript, demo_dir: String) -> void:
 		check(strumline.note_image_path("hold_end", 3, mod_root) == user_file, "a mod without that file falls through to user://content")
 		DirAccess.remove_absolute(user_file)
 		if not had_user_dir:
-			_remove_empty_parents(user_dir, "user://")
+			_remove_empty_parents(user_dir, TEST_HOME)
 
 
 func _remove_empty_parents(path: String, stop: String) -> void:

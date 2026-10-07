@@ -1,8 +1,6 @@
 class_name WeekMeta
 extends RefCounted
 
-const BANNER_FOLDER := "assets/imported/menus"
-
 var id := ""
 var name := ""
 var story_name := ""
@@ -27,14 +25,14 @@ static func from_json(json: Dictionary, package_root := "") -> WeekMeta:
 	return week
 
 
-## The week's own banner when its package has one, otherwise the shared menu art.
+## A mod week's own banner when its mod has one, otherwise the menu art lookup's; empty when there is none.
+## The base content's banners are part of that lookup, so menu art mods and user://content can replace them.
 func banner_path() -> String:
 	var relative := "weeks/%s.png" % id
-	if not package_root.is_empty():
-		var own := package_root.path_join(BANNER_FOLDER).path_join(relative)
-		if FileAccess.file_exists(own):
-			return own
-	return Ui.MENUS_ROOT.path_join(relative)
+	var own := package_root.path_join(Ui.MENUS_FOLDER).path_join(relative)
+	if not package_root.is_empty() and own != Ui.MENUS_ROOT.path_join(relative) and FileAccess.file_exists(own):
+		return own
+	return Ui.menu_asset(relative)
 
 
 static func _channel(value: Variant, fallback: int) -> int:

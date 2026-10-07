@@ -53,7 +53,7 @@ def validate(root: Path) -> dict[str, int]:
     if "enabled" in mod and not isinstance(mod["enabled"], bool):
         raise ValueError("mod.json enabled must be true or false")
 
-    totals = {"songs": 0, "weeks": 0, "scripts": 0, "notes": 0, "player": 0,
+    totals = {"songs": 0, "weeks": 0, "scripts": 0, "assets": 0, "notes": 0, "player": 0,
               "opponent": 0, "sustains": 0, "camera_events": 0}
     song_ids: set[str] = set()
 
@@ -127,8 +127,14 @@ def validate(root: Path) -> dict[str, int]:
             raise ValueError(f"script is not UTF-8: {script}: {exc}") from exc
         totals["scripts"] += 1
 
-    if totals["songs"] == 0 and totals["scripts"] == 0:
-        raise ValueError("mod adds no songs/*/song.json and no scripts/*.lua")
+    for path in sorted((root / "assets").rglob("*")):
+        if path.is_file():
+            if path.suffix.lower() == ".json":
+                load_json(path)
+            totals["assets"] += 1
+
+    if totals["songs"] == 0 and totals["scripts"] == 0 and totals["assets"] == 0:
+        raise ValueError("mod adds no songs/*/song.json, no scripts/*.lua and no assets/ files")
     return totals
 
 

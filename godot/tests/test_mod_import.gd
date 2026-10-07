@@ -266,7 +266,7 @@ func _test_download_completion() -> void:
 	check(unresolved.error.contains("unknown host"), "network error reported: " + unresolved.error)
 
 
-## Drives the real Mods screen: import rows, the URL field, and a finished download installed into user://mods.
+## Drives the real Mods screen: import rows, the URL field, and a finished download installed into the mods folder.
 func _test_mods_screen() -> void:
 	var content: Node = root.get_node("/root/Content")
 	var saved_overrides: String = content.get("mod_overrides_path")
@@ -296,9 +296,9 @@ func _test_mods_screen() -> void:
 	_press(KEY_ESCAPE)
 	check(screen.mode == screens.Mode.LIST and screen.selection == mod_count, "Escape returns to the list on the import row")
 	var downloaded := _cache_copy(_zip("screen.zip", {"mod.json": JSON.stringify({"id": SCREEN_MOD_ID, "name": "ZZ Screen Pack"})}))
-	var target := ModPackImporter.MODS_DIR.path_join(SCREEN_MOD_ID)
+	var target: String = screen.mods_dir.path_join(SCREEN_MOD_ID)
 	screen.finish_import(ModPackImporter.import_download(HTTPRequest.RESULT_SUCCESS, 200, downloaded, screen.mods_dir), downloaded, true)
-	check(DirAccess.dir_exists_absolute(target) and not FileAccess.file_exists(downloaded), "download installed into user://mods and its zip deleted")
+	check(DirAccess.dir_exists_absolute(target) and not FileAccess.file_exists(downloaded), "download installed into the mods folder and its zip deleted")
 	check(screen.mode == screens.Mode.LIST and screen.item_count() == mod_count + 2, "list refreshed with the new mod")
 	check(screen.row(screen.selection).text.ends_with("ZZ Screen Pack"), "the new mod is selected")
 	downloaded = _cache_copy(ZIPS.path_join("screen.zip"))

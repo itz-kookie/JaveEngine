@@ -25,6 +25,7 @@ func scan() -> void:
 		_scan_mods(mod_root)
 	mods.sort_custom(_mod_before)
 	ModOverrides.apply(mods, ModOverrides.load_file(mod_overrides_path))
+	Ui.use_menu_folders(menu_folders())
 	for package_root in _enabled_package_roots():
 		_scan_songs(package_root)
 	songs.sort_custom(_song_before)
@@ -114,6 +115,17 @@ static func preferred_audio(path: String) -> String:
 		return path
 	var ogg := path.get_basename() + ".ogg"
 	return ogg if FileAccess.file_exists(ogg) else path
+
+
+## Where menu art is looked for, best first: enabled mods in Mods screen order, user://content, then the base content.
+func menu_folders() -> PackedStringArray:
+	var folders := PackedStringArray()
+	for mod in mods:
+		if mod.enabled:
+			folders.append(mod.root.path_join(Ui.MENUS_FOLDER))
+	folders.append(Paths.user_mirror(Ui.MENUS_ROOT))
+	folders.append(Ui.MENUS_ROOT)
+	return folders
 
 
 func _prefer_user_mirror(path: String) -> String:

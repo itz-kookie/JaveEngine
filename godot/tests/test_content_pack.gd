@@ -1,19 +1,26 @@
 extends "res://tests/test_base.gd"
 
-## Builds a full content pack in user://mods from the Neon Steps demo files under a new song id, then plays it for 2 s under botplay.
+## Builds a full content pack in the mods folder from the Neon Steps demo files under a new song id, then plays it for 2 s under botplay.
 const MOD_ID := "zz-content-pack-test"
-const MOD_ROOT := "user://mods/" + MOD_ID
+const MOD_ROOT := TEST_HOME + "/mods/" + MOD_ID
 const SONG_ID := "zz-pack-steps"
 const WEEK_ID := "zz-pack-week"
 const STAGE_ID := "zz-pack-stage"
-const OVERRIDES := "user://zz-content-pack-overrides.json"
 const LOG_PATH := "user://saves/jave.log"
 const START_TIMEOUT_MS := 15000
 const PLAY_MS := 2000
+## The menu art pack lives in a mod root of its own, so other installed mods cannot come before it.
+const MENU_MODS := TEST_HOME + "/menu-pack-mods"
+const MENU_MOD_ROOT := MENU_MODS + "/zz-menu-pack"
+const MENU_ART := MENU_MOD_ROOT + "/assets/imported/menus"
+const MENU_FILES: PackedStringArray = ["alphabet/glyphs.json", "alphabet/41.png", "buttons/story_mode/animation.json",
+	"menuBG.png", "weeks/zz-menu-week.png"]
 
 var _ran := false
 var _content: Node
 var _failed_message := ""
+## A banner the base content ships, also put in the menu pack; empty when the base content has none.
+var _shipped_banner := ""
 
 
 ## Content and the scenes reference autoloads, which exist from the first frame.
@@ -30,8 +37,6 @@ func _process(_delta: float) -> bool:
 
 func _run_all() -> void:
 	_content = root.get_node("/root/Content")
-	var saved_overrides: String = _content.get("mod_overrides_path")
-	_content.set("mod_overrides_path", OVERRIDES)
 	ModPackImporter.remove_tree(MOD_ROOT)
 	_build_pack()
 	_content.call("scan")
@@ -41,10 +46,9 @@ func _run_all() -> void:
 		_check_resolution(song)
 		await _check_play(song)
 	ModPackImporter.remove_tree(MOD_ROOT)
-	DirAccess.remove_absolute(OVERRIDES)
-	_content.set("mod_overrides_path", saved_overrides)
 	_content.call("scan")
 	check(_content.call("find_song", SONG_ID) == null and not DirAccess.dir_exists_absolute(MOD_ROOT), "pack removed")
+	_check_menu_pack()
 	# Let the audio server release stopped playbacks before quitting.
 	await create_timer(0.2).timeout
 	super._initialize()
@@ -106,7 +110,7 @@ func _check_resolution(song: SongMeta) -> void:
 		check(_content.call("find_week_song", WeekMeta.new(), SONG_ID) == shadow, "week without a package takes the first copy")
 		songs.erase(shadow)
 	var other_week := WeekMeta.from_json({"id": "zz-no-banner", "songs": [SONG_ID]}, MOD_ROOT)
-	check(other_week.banner_path() == Ui.MENUS_ROOT.path_join("weeks/zz-no-banner.png"), "missing pack banner falls back to the shared menu art")
+	check(other_week.banner_path() == Ui.menu_asset("weeks/zz-no-banner.png"), "missing pack banner falls back to the menu art lookup")
 	check(_content.call("cutscene_path", SONG_ID, false) == MOD_ROOT.path_join("assets/videos/intro.ogv"), "pack cutscene resolves inside the pack")
 	check(_content.call("cutscene_path", SONG_ID, false, MOD_ROOT) == MOD_ROOT.path_join("assets/videos/intro.ogv"), "cutscene looked up from the given package")
 	var strumline: GDScript = load("res://scenes/play/Strumline.gd")
@@ -148,6 +152,89 @@ func _check_play(song: SongMeta) -> void:
 	check(errors.is_empty(), "no errors logged: %s" % [errors])
 	play.queue_free()
 	await process_frame
+
+
+func _check_menu_pack() -> void:
+	var saved_roots: PackedStringArray = _content.get("mod_roots")
+	_content.set("mod_roots", PackedStringArray([MENU_MODS]))
+	ModPackImporter.remove_tree(MENU_MODS)
+	_build_menu_pack()
+	_content.call("scan")
+	for relative in MENU_FILES:
+		check(Ui.menu_asset(relative) == MENU_ART.path_join(relative), "menu pack resolves " + relative)
+	check(FunkinLabel.glyphs_folder() == MENU_ART.path_join("alphabet"), "alphabet read from the menu pack")
+	var label := FunkinLabel.new()
+	root.add_child(label)
+	label.show_text("AB A", 400.0, 60.0)
+	var images: Array[TextureRect] = []
+	var labels := 0
+	for child in label.get_children():
+		if child is TextureRect:
+			images.append(child)
+		elif child is Label:
+			labels += 1
+	var glyph_a := TextureCache.get_texture(MENU_ART.path_join("alphabet/41.png"))
+	check(labels == 0 and images.size() == 3, "alphabet text drawn with glyph images (%d images, %d labels)" % [images.size(), labels])
+	check(images.size() == 3 and images[0].texture == glyph_a and images[2].texture == glyph_a
+		and images[1].texture == TextureCache.get_texture(MENU_ART.path_join("alphabet/42.png")), "glyphs come from the pack's alphabet folder")
+	label.free()
+	var title_screen: GDScript = load("res://scenes/menus/TitleScreen.gd")
+	var button: CharacterAsset = title_screen._load_button(0)
+	check(button != null and button.base == MENU_ART.path_join("buttons/story_mode"), "title button read from the menu pack")
+	check(Ui.menu_texture("menuBG.png") == TextureCache.get_texture(MENU_ART.path_join("menuBG.png")), "backdrop read from the menu pack")
+	var backdrop: Control = load("res://scenes/menus/MenuBackdrop.gd").new()
+	root.add_child(backdrop)
+	backdrop.call("show_style", "menuBG.png")
+	check((backdrop.get("_art") as TextureRect).texture == Ui.menu_texture("menuBG.png"), "backdrop draws the pack's art")
+	backdrop.free()
+	check(WeekMeta.from_json({"id": "zz-menu-week"}).banner_path() == MENU_ART.path_join("weeks/zz-menu-week.png"), "week banner falls back to the menu pack")
+	check(WeekMeta.from_json({"id": "zz-menu-week"}, "res://content").banner_path() == MENU_ART.path_join("weeks/zz-menu-week.png"),
+		"base content week without its own banner uses the menu pack")
+	if not _shipped_banner.is_empty():
+		var shipped_week := WeekMeta.from_json({"id": _shipped_banner.get_basename()}, "res://content")
+		check(shipped_week.banner_path() == MENU_ART.path_join("weeks").path_join(_shipped_banner), "menu pack banner replaces the base content's")
+
+	ModPackImporter.remove_tree(MENU_MODS)
+	TextureCache.forget_under(MENU_MODS)
+	_content.call("scan")
+	var user_menus: String = root.get_node("/root/Paths").call("user_mirror", Ui.MENUS_ROOT)
+	for relative in MENU_FILES:
+		var expected := ""
+		for candidate: String in [user_menus.path_join(relative), Ui.MENUS_ROOT.path_join(relative)]:
+			if FileAccess.file_exists(candidate):
+				expected = candidate
+				break
+		check(Ui.menu_asset(relative) == expected, "after removal %s falls back to %s" % [relative, expected if not expected.is_empty() else "nothing"])
+	check(not FunkinLabel.glyphs_folder().begins_with(MENU_MODS), "alphabet no longer read from the removed pack")
+	var fallback: CharacterAsset = title_screen._load_button(0)
+	check(fallback == null or not fallback.base.begins_with(MENU_MODS), "title button no longer read from the removed pack")
+	_content.set("mod_roots", saved_roots)
+	_content.call("scan")
+
+
+func _build_menu_pack() -> void:
+	_write(MENU_MOD_ROOT.path_join("mod.json"), JSON.stringify({"id": "zz-menu-pack", "name": "ZZ Menu Pack", "version": "1.0.0"}))
+	_write(MENU_ART.path_join("alphabet/glyphs.json"), JSON.stringify({
+		"A": {"file": "41.png", "width": 40, "height": 50}, "B": {"file": "42.png", "width": 36, "height": 50}}))
+	_write_png(MENU_ART.path_join("alphabet/41.png"), Vector2i(40, 50), Color.RED)
+	_write_png(MENU_ART.path_join("alphabet/42.png"), Vector2i(36, 50), Color.BLUE)
+	_write(MENU_ART.path_join("buttons/story_mode/animation.json"), JSON.stringify({
+		"idle": {"frames": 1, "fps": 24, "loop": true, "width": 60, "height": 12}}))
+	_write_png(MENU_ART.path_join("buttons/story_mode/idle/frame_000.png"), Vector2i(60, 12), Color.GREEN)
+	_write_png(MENU_ART.path_join("menuBG.png"), Vector2i(32, 18), Color.YELLOW)
+	_write_png(MENU_ART.path_join("weeks/zz-menu-week.png"), Vector2i(48, 12), Color.WHITE)
+	for file in DirAccess.get_files_at(Ui.MENUS_ROOT.path_join("weeks")):
+		if file.get_extension() == "png":
+			_shipped_banner = file
+			_write_png(MENU_ART.path_join("weeks").path_join(file), Vector2i(48, 12), Color.WHITE)
+			break
+
+
+static func _write_png(path: String, image_size: Vector2i, color: Color) -> void:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
+	image.fill(color)
+	image.save_png(path)
 
 
 func _log_size() -> int:

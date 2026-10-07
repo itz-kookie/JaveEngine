@@ -137,11 +137,13 @@ Everything the importer writes is gitignored: songs, charts, stages, `assets/imp
 
 ## Mods
 
-A mod is a folder with a `mod.json` (see [Scripting](SCRIPTING.md#mods)) and the package layout above. Its songs, charts, stages, weeks, cutscenes, note art and scripts resolve from the mod folder. Validate a mod with:
+A mod is a folder with a `mod.json` (see [Scripting](SCRIPTING.md#mods)) and the package layout above. Its songs, charts, stages, weeks, cutscenes, note art, menu art and scripts resolve from the mod folder. Validate a mod with:
 
 ```sh
 python tools/validate_jave_mod.py mods/my-mod
 ```
+
+It also checks that every `.json` file under the mod's `assets/` holds a JSON object.
 
 Mods are loaded from the repository's `mods/` and from `user://mods/`.
 
@@ -167,17 +169,18 @@ A content pack is a mod folder. It is how content is added to an installed game 
   assets/stages/                           stage images named by "stageImage"
   assets/imported/notes/<kind>_<lane>.png  note art for this pack's songs
   assets/imported/menus/weeks/<week-id>.png  Story Mode banner for this pack's week
+  assets/imported/menus/                   menu art: alphabet/, buttons/, backdrops (see Images and animation)
   assets/videos/                           cutscene videos
   scripts/*.lua                            Lua scripts
 ```
 
-Only `mod.json` is required. The `assets/` subfolders are a convention: `song.json` names every asset path, so any layout inside the pack works.
+Only `mod.json` is required, plus at least one song, Lua script or file under `assets/`: a pack of menu art alone is valid. The `assets/` subfolders are a convention for songs, since `song.json` names every asset path; menu art and note art are found only at the paths above.
 
 A pack's week plays its songs from the same pack when another package has songs with the same ids, and a week id already listed by the base content or by a mod earlier in Mods screen order is skipped.
 
 ### Packs from an imported library
 
-`python tools/make_content_packs.py` turns each week of `data/weeks.imported.json` (not the demo week) into a pack at `build/packs/<week-id>.zip`, holding a `fnf-<week-id>/` mod folder with the week's songs, charts, stages, character folders (with any attached speaker), icons, stage images, all 24 note images, the week banner and the week's cutscene entries and videos. Characters shared between weeks, such as bf and gf, are copied into each pack. Every mod folder is checked with `tools/validate_jave_mod.py` before it is zipped. `--weeks week1 weekend1` builds only those weeks, `--out DIR` writes elsewhere, and `--dry-run` lists each pack without writing. The packs hold the user's own imported content, for the user's own devices; they grant no redistribution rights.
+`python tools/make_content_packs.py` turns each week of `data/weeks.imported.json` (not the demo week) into a pack at `build/packs/<week-id>.zip`, holding a `fnf-<week-id>/` mod folder with the week's songs, charts, stages, character folders (with any attached speaker), icons, stage images, all 24 note images, the week banner and the week's cutscene entries and videos. Characters shared between weeks, such as bf and gf, are copied into each pack. Every mod folder is checked with `tools/validate_jave_mod.py` before it is zipped. It also builds `build/packs/menus.zip`, a `fnf-menus/` mod with no songs holding all of `assets/imported/menus/` (alphabet, title buttons, backdrops and every week banner) except `IMPORT_NOTICE.txt`; week banners stay in the week packs too. `--weeks week1 weekend1` builds only those weeks, `--menus` only the menus pack (the two combine), `--out DIR` writes elsewhere, and `--dry-run` lists each pack without writing. The packs hold the user's own imported content, for the user's own devices; they grant no redistribution rights.
 
 ### Zip layout
 
@@ -202,7 +205,7 @@ Web builds have no importer and no Import content pack row.
 
 ## Images and animation
 
-Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. A week banner (`weeks/<week-id>.png`) is read from the week's mod first, then from the base content. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
+Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art is read from `assets/imported/menus/`: the title font (`alphabet/glyphs.json` and the glyph images beside it), the title buttons (`buttons/<id>/`), the backdrops (`menuBG.png`, `menuBGBlue.png`, `menuBGMagenta.png`, `menuCool.png`, `menuPurple.png`) and the week banners (`weeks/<week-id>.png`). Each file is looked up in this order, and the first copy wins: each enabled mod's `assets/imported/menus/` in Mods screen order, `user://content/assets/imported/menus/`, then the base package's `assets/imported/menus/`. The glyph images are always read from the folder of the `glyphs.json` that was found, so an alphabet is never mixed from two packages. A week banner is read from the week's own mod first, then by the same order. Menus fall back to plain text, and the backdrop to its gradient, when nothing is found. Lookups are remembered until the mod list is rescanned (after an import, or enabling or disabling a mod), so new menu art shows the next time a screen opens. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
 
 ## Checklist
 

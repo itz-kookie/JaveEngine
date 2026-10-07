@@ -15,7 +15,7 @@ var fullscreen := false
 var show_fps := true
 var keybinds: PackedInt32Array = DEFAULT_KEYBINDS.duplicate()
 var audio_offset_ms := 0.0
-var save_path := "user://config/settings.json"
+var save_path := Paths.user("config/settings.json")
 
 
 func _ready() -> void:

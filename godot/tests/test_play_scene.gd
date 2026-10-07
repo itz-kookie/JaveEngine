@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://tests/test_base.gd"
 
 ## Plays Neon Steps under botplay in real time (about 26 s) and checks the expected botplay score.
 const TIMEOUT_SECONDS := 45.0
@@ -8,6 +8,11 @@ var _elapsed := 0.0
 var _result: Gameplay
 var _error := ""
 var _started := false
+
+
+## The song is started from the first frame; quitting is left to _process.
+func _initialize() -> void:
+	pass
 
 
 func _start() -> void:

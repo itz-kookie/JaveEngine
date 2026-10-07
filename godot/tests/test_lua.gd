@@ -3,7 +3,7 @@ extends "res://tests/test_base.gd"
 ## Autoload scripts only compile once the autoload globals exist, so they load lazily on the first frame.
 const TEMP_DIR := "user://test_lua_tmp"
 const TEMP_MOD_ID := "zz-lua-test-mod"
-const USER_MODS := "user://mods"
+const USER_MODS := TEST_HOME + "/mods"
 const LOG_PATH := "user://saves/jave.log"
 
 var _host: Node

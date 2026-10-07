@@ -1,12 +1,14 @@
-"""Build one content pack (a mod .zip) per Story Mode week from the locally imported library.
+"""Build content packs (mod .zip files) from the locally imported library: one per Story Mode week, plus the menu art.
 
 Each week in data/weeks.imported.json becomes a self-contained mod folder holding its songs, charts, stages,
 character folders (plus any attached speaker), icons, stage images, note art, week banner and cutscene
 videos, and is zipped to <out>/<week-id>.zip with the mod inside a top-level fnf-<week-id>/ folder.
+The menus pack holds all of assets/imported/menus (alphabet, title buttons, backdrops, week banners) and no
+songs, zipped to <out>/menus.zip inside fnf-menus/.
 Every mod folder is checked with tools/validate_jave_mod.py before it is zipped. Shared files such as the
 bf and gf folders are copied into every pack that uses them. The packs hold user-supplied content: they are
 for the user's own devices, not for redistribution.
-Usage: python tools/make_content_packs.py [content_root] [--out DIR] [--weeks ID ...] [--dry-run]
+Usage: python tools/make_content_packs.py [content_root] [--out DIR] [--weeks ID ...] [--menus] [--dry-run]
 """
 import argparse
 import json
@@ -23,6 +25,9 @@ import validate_jave_mod  # noqa: E402
 WEEKS_FILE = "data/weeks.imported.json"
 CUTSCENES_FILE = "data/cutscenes.json"
 NOTES_DIR = "assets/imported/notes"
+MENUS_DIR = "assets/imported/menus"
+MENUS_PACK = "menus"
+MENUS_SKIPPED = {"IMPORT_NOTICE.txt"}
 WEEK_ART = "assets/imported/menus/weeks/{}.png"
 SKIPPED_WEEKS = {"demo"}
 VISUAL_FIELDS = ("playerVisual", "opponentVisual", "girlfriendVisual")
@@ -167,6 +172,9 @@ class Pack:
                     paths.add(relative)
         return sorted(paths)
 
+    def generated_files(self):
+        return 3 if self.cutscenes else 2
+
     def manifest(self, mod_id):
         return {
             "id": mod_id,
@@ -187,6 +195,44 @@ class Pack:
         write_json(mod_root / "data/weeks.json", {"format": "jave-weeks-v1", "weeks": [self.week]})
         if self.cutscenes:
             write_json(mod_root / CUTSCENES_FILE, self.cutscenes)
+
+
+class MenusPack:
+    """Every file under assets/imported/menus except the import notice, for menu art from a pack."""
+
+    def __init__(self, content_root):
+        self.content_root = content_root
+        self.problems = [] if (content_root / MENUS_DIR).is_dir() else [f"missing folder {MENUS_DIR}"]
+
+    def sources(self):
+        paths = []
+        for path in sorted((self.content_root / MENUS_DIR).rglob("*")):
+            relative = path.relative_to(self.content_root).as_posix()
+            if (path.is_file() and not path.name.startswith(".") and path.name not in MENUS_SKIPPED
+                    and inside(self.content_root, relative)):
+                paths.append(relative)
+        return paths
+
+    def generated_files(self):
+        return 1
+
+    def manifest(self, mod_id):
+        return {
+            "id": mod_id,
+            "name": "FNF Menus",
+            "version": "1.0",
+            "author": "User-supplied content",
+            "description": "Menu art (alphabet, title buttons, backdrops, week banners) from the user's local FNF "
+                           "library. User-supplied content; no redistribution rights granted by Jave Engine.",
+            "enabled": True,
+        }
+
+    def write(self, mod_root, mod_id):
+        for relative in self.sources():
+            target = mod_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(self.content_root / relative, target)
+        write_json(mod_root / "mod.json", self.manifest(mod_id))
 
 
 def write_json(path, value):
@@ -211,65 +257,82 @@ def megabytes(size):
     return f"{size / (1024 * 1024):.1f} MiB"
 
 
+def build(pack, name, mod_id, content_root, out, dry_run, detail=""):
+    """Writes, validates and zips one pack; returns False when it fails."""
+    if pack.problems:
+        for problem in pack.problems:
+            print(f"error: {name}: {problem}")
+        return False
+    sources = pack.sources()
+    file_count = len(sources) + pack.generated_files()
+    source_size = sum((content_root / relative).stat().st_size for relative in sources)
+    if dry_run:
+        print(f"would build {name}.zip: {file_count} files, {megabytes(source_size)} before zipping{detail}")
+        return True
+    with tempfile.TemporaryDirectory(prefix="jave-pack-") as staging:
+        mod_root = Path(staging) / mod_id
+        pack.write(mod_root, mod_id)
+        try:
+            validate_jave_mod.validate(mod_root)
+        except ValueError as exc:
+            print(f"error: {name}: validation failed: {exc}")
+            return False
+        zip_path = out / f"{name}.zip"
+        write_zip(mod_root, zip_path, mod_id)
+    print(f"built {zip_path.relative_to(ROOT) if zip_path.is_relative_to(ROOT) else zip_path}: "
+          f"{megabytes(zip_path.stat().st_size)} ({file_count} files)")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("content_root", type=Path, nargs="?", default=ROOT,
                         help="folder holding songs/, data/ and assets/ (default: the repository root)")
     parser.add_argument("--out", type=Path, default=ROOT / "build" / "packs", help="where the .zip files go")
-    parser.add_argument("--weeks", nargs="+", metavar="ID", help="only these week ids")
+    parser.add_argument("--weeks", nargs="+", metavar="ID", help="only these week ids (and the menus pack with --menus)")
+    parser.add_argument("--menus", action="store_true", help="only the menus pack (and the weeks given with --weeks)")
     parser.add_argument("--dry-run", action="store_true", help="list each pack's contents without writing anything")
     args = parser.parse_args()
 
     content_root = args.content_root.resolve()
-    weeks_path = content_root / WEEKS_FILE
-    if not weeks_path.is_file():
-        sys.exit(f"error: no {WEEKS_FILE} in {content_root}; import a library first")
-    weeks = [week for week in load_json(weeks_path).get("weeks", [])
-             if isinstance(week, dict) and isinstance(week.get("id"), str) and isinstance(week.get("songs"), list)
-             and week["songs"] and week["id"] not in SKIPPED_WEEKS]
-    if args.weeks:
-        unknown = sorted(set(args.weeks) - {week["id"] for week in weeks})
-        if unknown:
-            sys.exit(f"error: unknown week ids: {', '.join(unknown)}")
-        weeks = [week for week in weeks if week["id"] in args.weeks]
-    cutscenes_path = content_root / CUTSCENES_FILE
-    cutscene_manifest = load_json(cutscenes_path) if cutscenes_path.is_file() else {}
-    if not isinstance(cutscene_manifest, dict):
-        sys.exit(f"error: {CUTSCENES_FILE} must hold a JSON object")
+    build_all = not args.weeks and not args.menus
+    weeks = []
+    cutscene_manifest = {}
+    if build_all or args.weeks:
+        weeks_path = content_root / WEEKS_FILE
+        if not weeks_path.is_file():
+            sys.exit(f"error: no {WEEKS_FILE} in {content_root}; import a library first")
+        weeks = [week for week in load_json(weeks_path).get("weeks", [])
+                 if isinstance(week, dict) and isinstance(week.get("id"), str) and isinstance(week.get("songs"), list)
+                 and week["songs"] and week["id"] not in SKIPPED_WEEKS]
+        if args.weeks:
+            unknown = sorted(set(args.weeks) - {week["id"] for week in weeks})
+            if unknown:
+                sys.exit(f"error: unknown week ids: {', '.join(unknown)}")
+            weeks = [week for week in weeks if week["id"] in args.weeks]
+        cutscenes_path = content_root / CUTSCENES_FILE
+        cutscene_manifest = load_json(cutscenes_path) if cutscenes_path.is_file() else {}
+        if not isinstance(cutscene_manifest, dict):
+            sys.exit(f"error: {CUTSCENES_FILE} must hold a JSON object")
 
     if not args.dry_run:
         args.out.mkdir(parents=True, exist_ok=True)
+    built = 0
     failed = 0
     for week in weeks:
-        mod_id = f"fnf-{week['id']}"
         pack = Pack(content_root, week)
         pack.collect(cutscene_manifest)
-        if pack.problems:
-            for problem in pack.problems:
-                print(f"error: {week['id']}: {problem}")
+        detail = f", songs {', '.join(week['songs'])}"
+        if build(pack, week["id"], f"fnf-{week['id']}", content_root, args.out, args.dry_run, detail):
+            built += 1
+        else:
             failed += 1
-            continue
-        sources = pack.sources()
-        file_count = len(sources) + (3 if pack.cutscenes else 2)
-        source_size = sum((content_root / relative).stat().st_size for relative in sources)
-        if args.dry_run:
-            print(f"would build {week['id']}.zip: {file_count} files, {megabytes(source_size)} before zipping, "
-                  f"songs {', '.join(week['songs'])}")
-            continue
-        with tempfile.TemporaryDirectory(prefix="jave-pack-") as staging:
-            mod_root = Path(staging) / mod_id
-            pack.write(mod_root, mod_id)
-            try:
-                validate_jave_mod.validate(mod_root)
-            except ValueError as exc:
-                print(f"error: {week['id']}: validation failed: {exc}")
-                failed += 1
-                continue
-            zip_path = args.out / f"{week['id']}.zip"
-            write_zip(mod_root, zip_path, mod_id)
-        print(f"built {zip_path.relative_to(ROOT) if zip_path.is_relative_to(ROOT) else zip_path}: "
-              f"{megabytes(zip_path.stat().st_size)} ({file_count} files)")
-    print(f"done: {len(weeks) - failed} packs, {failed} failed")
+    if build_all or args.menus:
+        if build(MenusPack(content_root), MENUS_PACK, f"fnf-{MENUS_PACK}", content_root, args.out, args.dry_run):
+            built += 1
+        else:
+            failed += 1
+    print(f"done: {built} packs, {failed} failed")
     if failed:
         sys.exit(1)
 
