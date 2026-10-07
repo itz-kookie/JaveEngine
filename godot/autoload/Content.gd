@@ -3,6 +3,7 @@ extends Node
 const CUTSCENE_MANIFEST := "data/cutscenes.json"
 const WEEKS_FILE := "data/weeks.json"
 ## Written by tools/import_psych_library.py and kept out of git; its weeks list before the shipped ones.
+## A copy under user://content is read before the one in the content folder.
 const IMPORTED_WEEKS_FILE := "data/weeks.imported.json"
 
 var songs: Array[SongMeta] = []
@@ -29,10 +30,7 @@ func scan() -> void:
 	songs.sort_custom(_song_before)
 	var has_song := func(id: String) -> bool: return find_song(id) != null
 	for package_root in _enabled_package_roots():
-		var lists: Array[Array] = [_read_weeks(package_root.path_join(WEEKS_FILE))]
-		if package_root == Paths.CONTENT_ROOT:
-			lists.push_front(_read_weeks(package_root.path_join(IMPORTED_WEEKS_FILE)))
-		weeks.append_array(playable_weeks(lists, has_song))
+		weeks.append_array(playable_weeks(_week_lists(package_root), has_song))
 
 
 ## Flips a mod's enabled state, persists it, and rescans so its songs and weeks appear or vanish.
@@ -72,16 +70,19 @@ func chart_path_for(song: SongMeta) -> String:
 
 
 ## Empty when the song has no cutscene on that side or the manifest entry is rejected.
+## Manifests are read from the song's own package first, then the base content, then the other enabled mods.
 func cutscene_path(song_id: String, outro: bool) -> String:
-	var manifest: Variant = JsonRead.load_file(_prefer_user_mirror(Paths.content(CUTSCENE_MANIFEST)))
-	var relative := CutsceneManifest.relative_path(manifest, song_id, outro)
-	if relative.is_empty():
-		return ""
-	var error := CutsceneManifest.rejection(relative)
-	if not error.is_empty():
-		Log.info("Cutscene manifest error: " + error)
-		return ""
-	return _prefer_user_mirror(Paths.content(relative))
+	for package_root in _cutscene_packages(song_id):
+		var manifest: Variant = JsonRead.load_file(_package_file(package_root, CUTSCENE_MANIFEST))
+		var relative := CutsceneManifest.relative_path(manifest, song_id, outro)
+		if relative.is_empty():
+			continue
+		var error := CutsceneManifest.rejection(relative)
+		if not error.is_empty():
+			Log.info("Cutscene manifest error in %s: %s" % [package_root, error])
+			return ""
+		return _package_file(package_root, relative)
+	return ""
 
 
 func load_audio(song_path: String) -> AudioStream:
@@ -109,6 +110,31 @@ static func preferred_audio(path: String) -> String:
 func _prefer_user_mirror(path: String) -> String:
 	var override := Paths.user_mirror(path)
 	return override if FileAccess.file_exists(override) else path
+
+
+func _cutscene_packages(song_id: String) -> PackedStringArray:
+	var roots := _enabled_package_roots()
+	var song := find_song(song_id)
+	if song != null and roots.has(song.package_root):
+		roots.remove_at(roots.find(song.package_root))
+		roots.insert(0, song.package_root)
+	return roots
+
+
+## Base content files can be overridden by their user://content twin; mod files are used as they are.
+func _package_file(package_root: String, relative: String) -> String:
+	var path := package_root.path_join(relative)
+	return _prefer_user_mirror(path) if package_root == Paths.CONTENT_ROOT else path
+
+
+func _week_lists(package_root: String) -> Array[Array]:
+	var lists: Array[Array] = []
+	if package_root == Paths.CONTENT_ROOT:
+		var imported := package_root.path_join(IMPORTED_WEEKS_FILE)
+		lists.append(_read_weeks(Paths.user_mirror(imported)))
+		lists.append(_read_weeks(imported))
+	lists.append(_read_weeks(package_root.path_join(WEEKS_FILE)))
+	return lists
 
 
 func _enabled_package_roots() -> PackedStringArray:

@@ -33,6 +33,8 @@ var camera_speed := 1.0
 var hide_girlfriend := false
 var stage_layout: Dictionary = {}
 var stage_config_path := ""
+## Root of the package (base content or mod folder) the song was read from.
+var package_root := ""
 
 
 static func from_json(json: Dictionary, package_root: String, folder_name: String) -> SongMeta:
@@ -52,6 +54,7 @@ static func from_json(json: Dictionary, package_root: String, folder_name: Strin
 	song.girlfriend_character = JsonRead.string(json, "girlfriendCharacter", "gf")
 	song._read_paths(json, package_root)
 	song._read_placement(json)
+	song.package_root = package_root
 	song.stage_config_path = package_root.path_join("data/stages").path_join(song.stage + ".json")
 	return song
 

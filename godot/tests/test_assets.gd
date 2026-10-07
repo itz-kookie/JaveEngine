@@ -61,10 +61,46 @@ func _test_note_images_fall_back_to_demo() -> void:
 	check(missing == 0, "every demo note image loads")
 	var imported_dir := TEMP_DIR.path_join("notes")
 	DirAccess.make_dir_recursive_absolute(imported_dir)
-	check(strumline.pick_note_image(imported_dir, demo_dir, "note", 2) == demo_dir.path_join("note_up.png"), "missing imported note art falls back to the demo arrows")
+	var dirs := PackedStringArray([imported_dir, demo_dir])
+	check(strumline.pick_note_image(dirs, "note", 2) == demo_dir.path_join("note_up.png"), "missing imported note art falls back to the demo arrows")
 	Image.create(2, 2, false, Image.FORMAT_RGBA8).save_png(imported_dir.path_join("note_up.png"))
-	check(strumline.pick_note_image(imported_dir, demo_dir, "note", 2) == imported_dir.path_join("note_up.png"), "imported note art wins when present")
-	check(strumline.pick_note_image(imported_dir, demo_dir, "note", 0) == demo_dir.path_join("note_left.png"), "fallback is chosen per file")
+	check(strumline.pick_note_image(dirs, "note", 2) == imported_dir.path_join("note_up.png"), "imported note art wins when present")
+	check(strumline.pick_note_image(dirs, "note", 0) == demo_dir.path_join("note_left.png"), "fallback is chosen per file")
+	_test_note_dir_order(strumline, demo_dir)
+
+
+func _test_note_dir_order(strumline: GDScript, demo_dir: String) -> void:
+	var user_dir := "user://content/assets/imported/notes"
+	var base_dirs: PackedStringArray = strumline.note_dirs("res://content")
+	check(base_dirs == PackedStringArray([user_dir, "res://content/assets/imported/notes", demo_dir]),
+		"base songs look in user://content, then the content folder, then the demo arrows (got %s)" % [base_dirs])
+	check(strumline.note_dirs("") == base_dirs, "no package means the base lookup")
+	var mod_root := TEMP_DIR.path_join("mod")
+	var mod_dirs: PackedStringArray = strumline.note_dirs(mod_root)
+	check(mod_dirs.size() == 4 and mod_dirs[0] == mod_root.path_join("assets/imported/notes") and mod_dirs[1] == user_dir,
+		"a mod song looks in its own package first (got %s)" % [mod_dirs])
+	var mod_notes := mod_dirs[0]
+	DirAccess.make_dir_recursive_absolute(mod_notes)
+	Image.create(2, 2, false, Image.FORMAT_RGBA8).save_png(mod_notes.path_join("hold_down.png"))
+	check(strumline.note_image_path("hold", 1, mod_root) == mod_notes.path_join("hold_down.png"), "mod note art wins for its own songs")
+	check(strumline.note_image_path("hold", 1, "res://content") != mod_notes.path_join("hold_down.png"), "mod note art is not used for other songs")
+	var had_user_dir := DirAccess.dir_exists_absolute(user_dir)
+	var user_file := user_dir.path_join("hold_end_right.png")
+	if not FileAccess.file_exists(user_file):
+		DirAccess.make_dir_recursive_absolute(user_dir)
+		Image.create(2, 2, false, Image.FORMAT_RGBA8).save_png(user_file)
+		check(strumline.note_image_path("hold_end", 3, "res://content") == user_file, "user://content note art wins over the content folder")
+		check(strumline.note_image_path("hold_end", 3, mod_root) == user_file, "a mod without that file falls through to user://content")
+		DirAccess.remove_absolute(user_file)
+		if not had_user_dir:
+			_remove_empty_parents(user_dir, "user://")
+
+
+func _remove_empty_parents(path: String, stop: String) -> void:
+	var dir := path
+	while dir != stop and dir.begins_with(stop) and DirAccess.get_files_at(dir).is_empty() and DirAccess.get_directories_at(dir).is_empty():
+		DirAccess.remove_absolute(dir)
+		dir = dir.get_base_dir()
 
 
 func _remove_dir(path: String) -> void:

@@ -135,6 +135,9 @@ func _check_empty_content() -> void:
 		_expect_screen(screen)
 	for list: String in saved:
 		content.get(list).assign(saved[list])
+	# With no mods, Enter on the Mods screen opens the import row's choices; the first Escape closes them.
+	_press(KEY_ESCAPE)
+	_expect_screen("MODS")
 	_press(KEY_ESCAPE)
 	_expect_screen("TITLE")
 

@@ -16,6 +16,7 @@ var selection := 0
 
 var _rows: Array[MenuRow] = []
 var _row_height := ROW_HEIGHT
+var _row_width := 0.0
 var _list_top := 0.0
 var _selection_tween := 0.0
 var _settled := true
@@ -61,11 +62,29 @@ func _adjust(_direction: int) -> void:
 func build_list(labels: PackedStringArray, top: float, width: float, row_height := ROW_HEIGHT) -> void:
 	_list_top = top
 	_row_height = row_height
-	for value in labels:
-		var row := MenuRow.new(value, width)
-		_rows.append(row)
-		add_child(row)
+	_row_width = width
+	_add_rows(labels)
 	Ui.footer(self, FOOTER, 42.0, 16, 30.0)
+
+
+## Swaps every row for new ones in the same list area and selects index.
+func replace_list(labels: PackedStringArray, index := 0) -> void:
+	for menu_row in _rows:
+		remove_child(menu_row)
+		menu_row.queue_free()
+	_rows.clear()
+	_add_rows(labels)
+	selection = clampi(index, 0, maxi(0, labels.size() - 1))
+	_selection_tween = selection
+	_settled = true
+	_layout_rows()
+
+
+func _add_rows(labels: PackedStringArray) -> void:
+	for value in labels:
+		var menu_row := MenuRow.new(value, _row_width)
+		_rows.append(menu_row)
+		add_child(menu_row)
 
 
 ## Item under a screen point, or -1; used by touch taps.

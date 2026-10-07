@@ -13,8 +13,8 @@ data/charts/<song-id>.json    chart, see CHART_FORMAT.md
 data/stages/<stage>.json      stage camera and layout, see STAGE_PLACEMENT.md
 data/weeks.json               Story Mode weeks
 data/weeks.imported.json      imported Story Mode weeks (base package only, optional, not tracked)
-data/cutscenes.json           Story Mode videos (base package only, optional, not tracked)
-assets/                       images, characters, videos
+data/cutscenes.json           Story Mode videos (optional)
+assets/                       images, characters, note art, videos
 scripts/                      Lua scripts, see SCRIPTING.md
 config/default.json           default settings
 mods/<mod-id>/                mod packages
@@ -81,17 +81,23 @@ python tools/convert_audio.py --update-manifests --delete-wav --ffmpeg /path/to/
 ] }
 ```
 
-A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `data/weeks.imported.json` (written by the Psych importer, gitignored) are listed first, then the shipped `data/weeks.json`; if both define the same id, the imported week is used. Weeks from enabled mods are added after the base package's weeks.
+A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `user://content/data/weeks.imported.json` are listed first, then `data/weeks.imported.json` (written by the Psych importer, gitignored), then the shipped `data/weeks.json`; when several define the same id, the first one is used. Weeks from enabled mods are added after the base package's weeks.
 
 ## Cutscenes
 
-Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (`.ogv`) files listed in `data/cutscenes.json`, an optional local file (the demo has no cutscenes, so none is shipped, and the path is gitignored):
+Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (`.ogv`) files listed in `data/cutscenes.json`, an optional file in any package (the demo has no cutscenes, so the base package ships none, and its path is gitignored):
 
 ```json
 { "my-song": { "before": "assets/videos/intro.ogv", "after": "assets/videos/outro.ogv" } }
 ```
 
-Paths are relative to the content root; absolute paths and `..` are rejected. A missing or unplayable video is skipped. `user://content/data/cutscenes.json` and files under `user://content/` take precedence over the files in the content folders.
+Paths are relative to the root of the package whose manifest lists them; absolute paths and `..` are rejected. For each song the manifests are read in this order, and the first one with an entry for that side decides:
+
+1. the package the song comes from (its mod, for a mod's song);
+2. the base package, where `user://content/data/cutscenes.json` replaces `data/cutscenes.json` when present and files under `user://content/` take precedence over the files in the content folders;
+3. the other enabled mods, in Mods screen order.
+
+A missing or unplayable video is skipped.
 
 `python tools/convert_cutscenes.py` converts each listed video (for example MP4) to a sibling `.ogv` and rewrites the manifest entry. It needs an FFmpeg with the `libtheora` and `libvorbis` encoders. Homebrew's `ffmpeg` lacks both; the practical route is the binary bundled with the `imageio-ffmpeg` pip package:
 
@@ -131,7 +137,7 @@ Everything the importer writes is gitignored: songs, charts, stages, `assets/imp
 
 ## Mods
 
-A mod is a folder with a `mod.json` (see [Scripting](SCRIPTING.md#mods)) and the package layout above. Its songs, charts, stages, weeks and scripts resolve from the mod folder. Validate a mod with:
+A mod is a folder with a `mod.json` (see [Scripting](SCRIPTING.md#mods)) and the package layout above. Its songs, charts, stages, weeks, cutscenes, note art and scripts resolve from the mod folder. Validate a mod with:
 
 ```sh
 python tools/validate_jave_mod.py mods/my-mod
@@ -139,9 +145,57 @@ python tools/validate_jave_mod.py mods/my-mod
 
 Mods are loaded from the repository's `mods/` and from `user://mods/`.
 
+## Content packs
+
+A content pack is a mod folder. It is how content is added to an installed game on desktop, Android and iOS: copy the folder into `user://mods/<mod-id>/`, or import it as a `.zip` from the Mods screen. See [Building](BUILDING.md#user-data) for where `user://` is on each OS.
+
+- Desktop: copy the folder in, or import a `.zip`.
+- iOS: the game's folder is visible in the Files app (**On My iPhone > Jave Engine**) and in Finder file sharing, so a pack can be copied into its `mods/` folder; importing a `.zip` from a URL also works.
+- Android: the game's folder is private to the app, so packs are imported as a `.zip` from a file or a URL.
+
+```text
+<mod-id>/
+  mod.json                                 {"id": "<mod-id>", "name": "...", "version": "...", "author": "..."}
+  songs/<song-id>/song.json                song manifest; paths in it are relative to <mod-id>/
+  songs/<song-id>/Inst.ogg                 song audio
+  data/charts/<song-id>.json               chart
+  data/stages/<stage>.json                 stage layout named by the song's "stage"
+  data/weeks.json                          Story Mode weeks
+  data/cutscenes.json                      Story Mode videos, relative to <mod-id>/
+  assets/characters/<name>/                character folders named by "playerVisual" and friends
+  assets/icons/                            health icons named by "playerIcon" / "opponentIcon"
+  assets/stages/                           stage images named by "stageImage"
+  assets/imported/notes/<kind>_<lane>.png  note art for this pack's songs
+  assets/videos/                           cutscene videos
+  scripts/*.lua                            Lua scripts
+```
+
+Only `mod.json` is required. The `assets/` subfolders are a convention: `song.json` names every asset path, so any layout inside the pack works.
+
+### Zip layout
+
+The zip holds the pack either at its root (`mod.json` next to `songs/`) or inside one top-level folder (`my-pack/mod.json`). Any other placement of `mod.json`, or more than one top-level folder with one, is rejected. The pack is installed into `user://mods/<id>/`, where `<id>` comes from `mod.json`, not from the zip or folder name.
+
+- `id` must be a string of letters, digits, `.`, `_` and `-`, starting with a letter or digit, at most 64 characters.
+- Entry paths are read with `\` as `/`, and empty and `.` segments are dropped (`./pack//songs` is `pack/songs`). A zip with an absolute entry path, a `:` (drive letter or stream name), a `..` segment (also percent-encoded, as in `%2e%2e`), an encoded `/` or `\`, a control character, or a symbolic link entry is rejected whole.
+- Limits, checked from the zip's directory before anything is unpacked: at most 50,000 entries, 512 MiB per file, and 2 GiB for the `.zip` itself and for everything it unpacks to. Zip64 archives are rejected, since they only exist to exceed these limits. Free storage is not checked; a full disk fails the import like any other write error.
+- Files outside the pack folder (for example a `README.txt` beside it) and `__MACOSX/` folders are skipped.
+- Entries are extracted one at a time into `user://cache/mod-import/<id>/`, which replaces `user://mods/<id>/` only after every file is written, so a failed import leaves an installed mod untouched. The installed copy is moved aside, the new one moved in, and the old one deleted; if the new one cannot be moved in, the old one is moved back (or, if even that fails, left in `user://cache/mod-import/<id>.previous` and named in the error).
+
+### Mods screen importer
+
+**Import content pack** is the last row of the Mods screen:
+
+- **From file** opens the system file picker filtered to `.zip`. It is shown only where Godot reports a native file dialog (`DisplayServer.FEATURE_NATIVE_DIALOG_FILE`); elsewhere the row is hidden, and packs come from **From URL** or are copied into `user://mods/`.
+- **From URL** shows a text field for an `http://` or `https://` link. Enter (or the **Download** row) downloads it to `user://cache/<name>.zip` with a progress line, imports it and deletes the download, whether the import succeeds or not. Up to 5 redirects are followed; any final status other than 200, a body over 2 GiB, or 30 seconds without receiving data fails the download. Escape or **Cancel download** stops it and deletes the partial file.
+
+When a mod with the same id is installed, the screen asks **Replace <id>** or **Keep installed version** before writing anything; leaving the screen at that prompt keeps the installed version. After an import the mod list, Story Mode weeks and Freeplay songs refresh at once, the mod keeps its enabled or disabled state, and images from the replaced copy are reloaded from disk. Its Lua scripts load at the next start: scripts already running keep the old copy until then. The result, or the reason a pack was rejected, is shown under the mod details. Importing runs on the main thread, so the screen pauses while a large pack is unpacked.
+
+Web builds have no importer and no Import content pack row.
+
 ## Images and animation
 
-Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is read from `assets/imported/notes/`, and each file missing there falls back to the demo arrows in `assets/demo/notes/`.
+Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
 
 ## Checklist
 

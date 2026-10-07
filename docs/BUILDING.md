@@ -33,7 +33,7 @@ $GODOT --headless --path godot -s res://tests/test_chart.gd
 
 Each `godot/tests/test_*.gd` except `test_base.gd` (the shared harness) is a runnable test that prints a summary and exits non-zero on failure:
 
-`test_assets`, `test_audio`, `test_chart`, `test_chart_editor`, `test_cursors`, `test_cutscene`, `test_judging`, `test_lua`, `test_menu_flow`, `test_paths`, `test_play_scene`, `test_settings`, `test_touch`.
+`test_assets`, `test_audio`, `test_chart`, `test_chart_editor`, `test_content_pack`, `test_cursors`, `test_cutscene`, `test_judging`, `test_lua`, `test_menu_flow`, `test_mod_import`, `test_paths`, `test_play_scene`, `test_settings`, `test_touch`.
 
 `test_play_scene` plays Neon Steps under Botplay in real time and takes about 30 seconds.
 
@@ -46,15 +46,17 @@ Writable data lives in Godot's `user://` folder:
 | macOS | `~/Library/Application Support/Godot/app_userdata/Jave Engine/` |
 | Windows | `%APPDATA%\Godot\app_userdata\Jave Engine\` |
 | Linux | `~/.local/share/godot/app_userdata/Jave Engine/` |
-| Android, iOS | the app's private storage |
+| Android | the app's private storage (reached through the Mods screen importer) |
+| iOS | the app's Documents folder, shown in the Files app under **On My iPhone > Jave Engine** |
 
 Contents:
 
 - `config/settings.json`: options. Defaults come from the shipped `config/default.json`; this file overrides them. Keys: `masterVolume` (0–1), `noteSpeed` (0.5–2.5), `downscroll`, `fullscreen`, `showFps`, `audioOffsetMs` (−1000 to 1000), `keybinds` (four Windows virtual-key codes, left to right; default `[68, 70, 74, 75]` = D F J K).
 - `config/mods.json`: enabled/disabled state chosen in the Mods screen.
-- `mods/<mod-id>/`: mods installed by the user, loaded alongside the shipped `mods/`.
+- `mods/<mod-id>/`: mods and content packs installed by the user (copied in or imported from the Mods screen), loaded alongside the shipped `mods/`. See [Content packs](CONTENT_IMPORT.md#content-packs).
+- `cache/`: downloads and staging folders used while importing a content pack; safe to delete.
 - `saves/jave.log`: the game log, including Lua errors.
-- `content/...`: overrides that mirror shipped paths. A chart saved in the chart editor is written here (for example `user://content/data/charts/neon-steps.json`) and is loaded instead of the shipped chart. `user://content/data/cutscenes.json` and videos under `user://content/` override the cutscene manifest and videos in the content folders the same way. Delete the file to return to the shipped version.
+- `content/...`: overrides that mirror shipped paths. A chart saved in the chart editor is written here (for example `user://content/data/charts/neon-steps.json`) and is loaded instead of the shipped chart. `user://content/data/cutscenes.json` and videos under `user://content/` override the cutscene manifest and videos in the content folders the same way. `user://content/data/weeks.imported.json` lists weeks before the content folders' weeks, and note art in `user://content/assets/imported/notes/` is used before the content folders' note art. Delete the file to return to the shipped version.
 
 ## Export
 
@@ -79,12 +81,13 @@ Exported builds do not include `LICENSE`, `THIRD_PARTY_NOTICES.md` or `licenses/
 
 - Android SDK (build-tools and platform-tools) and JDK 17; set both paths in **Editor Settings > Export > Android**.
 - Debug builds use the editor's debug keystore. For release, create a keystore (`keytool -genkeypair -v -keystore jave.keystore -alias jave -keyalg RSA -validity 10000`) and fill `keystore/release*` in the Android preset locally. Do not commit keystores or passwords.
-- The preset targets arm64 only, uses the prebuilt template (no Gradle build), immersive landscape, package `com.javeengine.game` (placeholder), no permissions.
+- The preset targets arm64 only, uses the prebuilt template (no Gradle build), immersive landscape, package `com.javeengine.game` (placeholder), and the Internet permission only, used by the Mods screen's **From URL** importer.
 
 ### iOS
 
 - macOS with Xcode, an Apple developer team and a provisioning profile. Fill `application/app_store_team_id` and the provisioning profile UUIDs in the iOS preset locally, or enable **Export Project Only** and sign in Xcode.
 - The lua-gdextension and godot-cpp iOS libraries are static `.xcframework` archives (`.a`), linked into the app binary and covered by its signature. If they are replaced with dynamic frameworks, sign each one or set it to **Embed & Sign** in Xcode.
+- The preset exposes the app's Documents folder (`user://`) in the Files app and Finder file sharing, so content packs can be copied into `mods/`.
 - iOS export has not been verified end to end.
 
 ### Audio latency

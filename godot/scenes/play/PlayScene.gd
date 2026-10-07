@@ -53,7 +53,7 @@ func _start() -> void:
 	_assets.finish_loading()
 	_stage.setup(song, _assets)
 	TextureCache.prune_frames()
-	_strumline.setup(Settings.downscroll, Settings.note_speed)
+	_strumline.setup(Settings.downscroll, Settings.note_speed, song.package_root)
 	_hud.setup(song)
 	if TouchControls.enabled():
 		$Overlay.add_child(TouchControls.make_lanes())

@@ -27,6 +27,7 @@ func run() -> void:
 	_test_defaults_come_from_shipped_config()
 	_test_ogg_preference()
 	_test_week_merging()
+	_test_user_imported_weeks()
 	_remove_tree(TEMP_DIR)
 	check(not DirAccess.dir_exists_absolute(TEMP_DIR), "temporary directory removed")
 
@@ -94,6 +95,40 @@ func _test_week_merging() -> void:
 	var empty: Array[WeekMeta] = []
 	var shipped_only: Array[Array] = [empty, shipped]
 	check(_content_script.playable_weeks(shipped_only, has_song).size() == 2, "missing imported weeks leave the shipped weeks")
+
+
+func _test_user_imported_weeks() -> void:
+	var content: Node = root.get_node("/root/Content")
+	var user_file := "user://content/data/weeks.imported.json"
+	var backup := FileAccess.get_file_as_string(user_file) if FileAccess.file_exists(user_file) else ""
+	var created_dirs := not DirAccess.dir_exists_absolute("user://content")
+	DirAccess.make_dir_recursive_absolute(user_file.get_base_dir())
+	_write(user_file, JSON.stringify({"weeks": [
+		{"id": "zz-user-week", "name": "User Week", "songs": ["neon-steps"]},
+		{"id": "demo", "name": "User Demo", "songs": ["neon-steps"]},
+		{"id": "zz-missing", "songs": ["no-such-song"]},
+	]}))
+	content.call("scan")
+	var ids := PackedStringArray()
+	var demo_name := ""
+	for week: WeekMeta in content.get("weeks"):
+		ids.append(week.id)
+		if week.id == "demo":
+			demo_name = week.name
+	check(ids.size() >= 2 and ids[0] == "zz-user-week", "user://content imported weeks are listed first (got %s)" % [ids])
+	check(demo_name == "User Demo", "a user imported week wins over a shipped week with the same id")
+	check(not ids.has("zz-missing"), "user weeks without installed songs are hidden")
+	if backup.is_empty():
+		DirAccess.remove_absolute(user_file)
+	else:
+		_write(user_file, backup)
+	if created_dirs:
+		_remove_tree("user://content")
+	content.call("scan")
+	var restored := PackedStringArray()
+	for week: WeekMeta in content.get("weeks"):
+		restored.append(week.id)
+	check(not restored.has("zz-user-week"), "removing the user file removes its weeks")
 
 
 static func _write(path: String, text: String) -> void:

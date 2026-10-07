@@ -76,7 +76,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_font = Ui.bold_font()
 	for lane in 4:
-		_note_textures.append(TextureCache.get_texture(Strumline.note_image_path("note", lane)))
+		_note_textures.append(TextureCache.get_texture(Strumline.note_image_path("note", lane, song.package_root)))
 	_build_styles()
 	_build_labels()
 	_refresh()

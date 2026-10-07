@@ -10,7 +10,7 @@ A four-lane rhythm game built with Godot 4.7 and GDScript, with Lua 5.4 mod scri
 - Ogg Vorbis song audio, with WAV (PCM, float, Microsoft ADPCM) and MP3 also accepted; Ogg Theora cutscenes in Story Mode.
 - Pause menu with Resume, Restart Song and Botplay.
 - In-song chart editor (press `7`).
-- Lua hooks and mod packages that can add songs, weeks, stages and scripts.
+- Lua hooks and mod packages that can add songs, weeks, stages, cutscenes, note art and scripts; packs are dropped into the user mods folder or imported as a .zip from the Mods screen (from a file or a URL) on desktop and mobile.
 - Basic touch controls.
 - 1280x720 canvas scaled to the window, keeping its aspect ratio.
 

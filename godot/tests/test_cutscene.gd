@@ -7,6 +7,8 @@ const VIDEO_DIR := "user://content/test-cutscenes"
 const CORRUPT_VIDEO := "test-cutscenes/corrupt.ogv"
 const REAL_VIDEO := "test-cutscenes/real.ogv"
 const FINISH_TIMEOUT_FRAMES := 600
+const MOD_ROOT := "user://mods/zz-cutscene-test-mod"
+const MOD_SONG := "zz-cutscene-mod-song"
 
 var _checks := 0
 var _failures := 0
@@ -27,6 +29,7 @@ func _run() -> void:
 	_write(VIDEO_DIR.path_join("corrupt.ogv"), "not a theora stream")
 	_write(VIDEO_DIR.path_join("empty.ogv"), "")
 	_check_content_paths()
+	_check_mod_manifests()
 	_main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(_main)
 	await process_frame
@@ -75,6 +78,61 @@ func _check_content_paths() -> void:
 	_check(content.call("cutscene_path", "s2", true) == "", "absolute path rejected")
 	_check(content.call("cutscene_path", "s3", false) == "", "empty path has no cutscene")
 	_check(content.call("cutscene_path", "s4", false) == "", "song without entry has no cutscene")
+
+
+## A mod's data/cutscenes.json resolves against the mod; the song's own package is asked first, then the base content, then other mods.
+func _check_mod_manifests() -> void:
+	var content := root.get_node("/root/Content")
+	var saved_overrides: String = content.get("mod_overrides_path")
+	content.set("mod_overrides_path", "user://zz-cutscene-test-overrides.json")
+	_write_mod()
+	_write_manifest({
+		MOD_SONG: {"before": "videos/root-before.ogv", "after": "videos/root-after.ogv"},
+		"s1": {"before": CORRUPT_VIDEO},
+		"neon-steps": {},
+	})
+	content.call("scan")
+	var song: SongMeta = content.call("find_song", MOD_SONG)
+	_check(song != null and song.package_root == MOD_ROOT, "mod song is scanned with its package root")
+	_check(content.call("cutscene_path", MOD_SONG, false) == MOD_ROOT.path_join("videos/intro.ogv"), "a mod song uses its own manifest first, resolved against the mod")
+	_check(content.call("cutscene_path", MOD_SONG, true) == "", "traversal in a mod manifest is rejected")
+	_check(content.call("cutscene_path", "s1", false) == "user://content/" + CORRUPT_VIDEO, "base content manifest wins for songs outside the mod")
+	_check(content.call("cutscene_path", "zz-only-in-mod", false) == MOD_ROOT.path_join("videos/only.ogv"), "other enabled mods are asked after the base content")
+	_check(content.call("cutscene_path", "neon-steps", true) == MOD_ROOT.path_join("videos/neon-after.ogv"), "a base song can take its cutscene from a mod")
+	_check(content.call("cutscene_path", "zz-absolute", false) == "", "absolute path in a mod manifest is rejected")
+	for mod: ModInfo in content.get("mods"):
+		if mod.root == MOD_ROOT:
+			mod.enabled = false
+	_check(content.call("cutscene_path", "zz-only-in-mod", false) == "", "a disabled mod's manifest is ignored")
+	_remove_tree(MOD_ROOT)
+	DirAccess.remove_absolute("user://zz-cutscene-test-overrides.json")
+	content.set("mod_overrides_path", saved_overrides)
+	content.call("scan")
+	_check(content.call("find_song", MOD_SONG) == null, "temporary mod removed")
+
+
+func _write_mod() -> void:
+	DirAccess.make_dir_recursive_absolute(MOD_ROOT.path_join("songs").path_join(MOD_SONG))
+	DirAccess.make_dir_recursive_absolute(MOD_ROOT.path_join("data/charts"))
+	_write(MOD_ROOT.path_join("mod.json"), JSON.stringify({"id": "zz-cutscene-test-mod", "name": "ZZ Cutscene Test"}))
+	_write(MOD_ROOT.path_join("songs").path_join(MOD_SONG).path_join("song.json"),
+		JSON.stringify({"id": MOD_SONG, "title": "ZZ", "chart": "data/charts/zz.json", "bpm": 120}))
+	_write(MOD_ROOT.path_join("data/charts/zz.json"), FileAccess.get_file_as_string("res://content/data/charts/neon-steps.json"))
+	_write(MOD_ROOT.path_join("data/cutscenes.json"), JSON.stringify({
+		MOD_SONG: {"before": "videos/intro.ogv", "after": "../escape.ogv"},
+		"s1": {"before": "videos/mod-s1.ogv"},
+		"zz-only-in-mod": {"before": "videos/only.ogv"},
+		"neon-steps": {"after": "videos/neon-after.ogv"},
+		"zz-absolute": {"before": "/etc/x.ogv"},
+	}))
+
+
+func _remove_tree(path: String) -> void:
+	for folder in DirAccess.get_directories_at(path):
+		_remove_tree(path.path_join(folder))
+	for file in DirAccess.get_files_at(path):
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)
 
 
 func _check_missing_video_starts_song(song: SongMeta) -> void:

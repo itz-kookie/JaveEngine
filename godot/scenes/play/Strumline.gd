@@ -15,6 +15,8 @@ const CONFIRM_SIZE := LANE_WIDTH * 1.34
 const HOLD_WIDTH := LANE_WIDTH * 0.24
 const HOLD_END_SIZE := LANE_WIDTH * 0.34
 const LANE_NAMES: PackedStringArray = ["left", "down", "up", "right"]
+const IMPORTED_NOTES := "assets/imported/notes"
+const DEMO_NOTES := "assets/demo/notes"
 
 var downscroll := false
 var note_speed := 1.0
@@ -34,16 +36,17 @@ var _ends: SpritePool
 var _heads: SpritePool
 
 
-func setup(scroll_down: bool, speed: float) -> void:
+func setup(scroll_down: bool, speed: float, package_root := "") -> void:
 	downscroll = scroll_down
 	note_speed = speed
 	receptor_y = DOWNSCROLL_RECEPTOR_Y if downscroll else UPSCROLL_RECEPTOR_Y
-	_receptor_textures = _lane_textures("receptor")
-	_press_textures = _lane_textures("press")
-	_confirm_textures = _lane_textures("confirm")
-	_note_textures = _lane_textures("note")
-	_hold_textures = _lane_textures("hold")
-	_hold_end_textures = _lane_textures("hold_end")
+	var dirs := note_dirs(package_root)
+	_receptor_textures = _lane_textures(dirs, "receptor")
+	_press_textures = _lane_textures(dirs, "press")
+	_confirm_textures = _lane_textures(dirs, "confirm")
+	_note_textures = _lane_textures(dirs, "note")
+	_hold_textures = _lane_textures(dirs, "hold")
+	_hold_end_textures = _lane_textures(dirs, "hold_end")
 	_opponent_receptors = _make_receptors()
 	_player_receptors = _make_receptors()
 	_tails = SpritePool.new(self)
@@ -51,21 +54,35 @@ func setup(scroll_down: bool, speed: float) -> void:
 	_heads = SpritePool.new(self)
 
 
-static func note_image_path(kind: String, lane: int) -> String:
-	return pick_note_image(Paths.content("assets/imported/notes"), Paths.content("assets/demo/notes"), kind, lane)
+static func note_image_path(kind: String, lane: int, package_root := "") -> String:
+	return pick_note_image(note_dirs(package_root), kind, lane)
 
 
-## Imported note art when present, otherwise the demo arrows. Chosen per file, so a partial import still draws every piece.
-static func pick_note_image(imported_dir: String, demo_dir: String, kind: String, lane: int) -> String:
+## Where note art is looked for, best first: the song's mod, user://content, the base content, then the demo arrows.
+static func note_dirs(package_root: String) -> PackedStringArray:
+	var dirs := PackedStringArray()
+	if not package_root.is_empty() and package_root != Paths.CONTENT_ROOT:
+		dirs.append(package_root.path_join(IMPORTED_NOTES))
+	dirs.append(Paths.user_mirror(Paths.content(IMPORTED_NOTES)))
+	dirs.append(Paths.content(IMPORTED_NOTES))
+	dirs.append(Paths.content(DEMO_NOTES))
+	return dirs
+
+
+## The first folder holding the file wins, and the last folder is the fallback. Chosen per file, so a partial set still draws every piece.
+static func pick_note_image(dirs: PackedStringArray, kind: String, lane: int) -> String:
 	var file_name := "%s_%s.png" % [kind, LANE_NAMES[clampi(lane, 0, 3)]]
-	var imported := imported_dir.path_join(file_name)
-	return imported if FileAccess.file_exists(imported) else demo_dir.path_join(file_name)
+	for index in dirs.size() - 1:
+		var candidate := dirs[index].path_join(file_name)
+		if FileAccess.file_exists(candidate):
+			return candidate
+	return dirs[dirs.size() - 1].path_join(file_name)
 
 
-static func _lane_textures(kind: String) -> Array[Texture2D]:
+static func _lane_textures(dirs: PackedStringArray, kind: String) -> Array[Texture2D]:
 	var textures: Array[Texture2D] = []
 	for lane in 4:
-		textures.append(TextureCache.get_texture(note_image_path(kind, lane)))
+		textures.append(TextureCache.get_texture(pick_note_image(dirs, kind, lane)))
 	return textures
 
 

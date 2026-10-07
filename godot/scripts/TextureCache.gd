@@ -21,6 +21,20 @@ static func get_texture(path: String) -> Texture2D:
 	return from_image(path, image) if image != null else null
 
 
+## Drops path-keyed textures and remembered hashes under a folder, so files replaced on disk (a reinstalled mod)
+## load fresh even when their modification time matches. Frames stay shared by content, so an unchanged frame is reused.
+static func forget_under(folder: String) -> void:
+	var prefix := folder.trim_suffix("/") + "/"
+	_mutex.lock()
+	for path: String in _textures.keys():
+		if path.begins_with(prefix):
+			_textures.erase(path)
+	for key: String in _hashes.keys():
+		if key.begins_with(prefix):
+			_hashes.erase(key)
+	_mutex.unlock()
+
+
 static func from_image(path: String, image: Image) -> Texture2D:
 	_mutex.lock()
 	var cached: Texture2D = _textures.get(path)
