@@ -36,7 +36,7 @@ func _build() -> void:
 		names.append(week.name)
 	build_list(names, screen.y * 0.57, screen.x * 0.46, 78.0)
 	for index in Content.weeks.size():
-		row(index).set_art(Ui.menu_texture("weeks/%s.png" % Content.weeks[index].id), 62.0, 48.0)
+		row(index).set_art(TextureCache.get_texture(Content.weeks[index].banner_path()), 62.0, 48.0)
 	var heading := FunkinLabel.new()
 	heading.position = Vector2(screen.x * 0.58, screen.y * 0.57)
 	add_child(heading)
@@ -60,7 +60,7 @@ func _selection_changed() -> void:
 
 func _first_installed(week: WeekMeta) -> SongMeta:
 	for song_id in week.song_ids:
-		var song := Content.find_song(song_id)
+		var song := Content.find_week_song(week, song_id)
 		if song != null:
 			return song
 	return null
@@ -72,7 +72,7 @@ func _show_tracks(week: WeekMeta) -> void:
 	var screen := Ui.SCREEN_SIZE
 	var y := screen.y * 0.64
 	for song_id in week.song_ids:
-		var song := Content.find_song(song_id)
+		var song := Content.find_week_song(week, song_id)
 		if song == null:
 			continue
 		var label := FunkinLabel.new()

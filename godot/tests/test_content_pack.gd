@@ -74,6 +74,7 @@ func _build_pack() -> void:
 	_copy("res://content/assets/demo/pulse/icon.png", MOD_ROOT.path_join("assets/icons/pulse.png"))
 	_copy("res://content/assets/demo/stage.png", MOD_ROOT.path_join("assets/stages/pack.png"))
 	_copy_tree("res://content/assets/demo/notes", MOD_ROOT.path_join("assets/imported/notes"))
+	_copy("res://content/assets/demo/stage.png", MOD_ROOT.path_join("assets/imported/menus/weeks/%s.png" % WEEK_ID))
 	_write(MOD_ROOT.path_join("scripts/pack.lua"),
 		"function on_song_start(id) if id == '%s' then jave_log('pack hook ' .. id) end end" % SONG_ID)
 
@@ -86,10 +87,28 @@ func _check_resolution(song: SongMeta) -> void:
 	check(FileAccess.file_exists(_content.call("chart_path_for", song)), "chart found")
 	check(not song.stage_layout.is_empty(), "pack stage layout applied")
 	var week_ids := PackedStringArray()
+	var pack_week: WeekMeta = null
 	for week: WeekMeta in _content.get("weeks"):
 		week_ids.append(week.id)
-	check(week_ids.has(WEEK_ID), "pack week is listed (got %s)" % [week_ids])
+		if week.id == WEEK_ID:
+			pack_week = week
+	check(pack_week != null, "pack week is listed (got %s)" % [week_ids])
+	if pack_week != null:
+		check(pack_week.package_root == MOD_ROOT, "week remembers its package")
+		check(pack_week.banner_path() == MOD_ROOT.path_join("assets/imported/menus/weeks/%s.png" % WEEK_ID), "pack week banner resolves inside the pack")
+		check(_content.call("find_week_song", pack_week, SONG_ID) == song, "week song comes from the week's package")
+		var shadow := SongMeta.new()
+		shadow.id = SONG_ID
+		shadow.package_root = Paths.CONTENT_ROOT
+		var songs: Array[SongMeta] = _content.get("songs")
+		songs.insert(0, shadow)
+		check(_content.call("find_week_song", pack_week, SONG_ID) == song, "week song skips an earlier copy from another package")
+		check(_content.call("find_week_song", WeekMeta.new(), SONG_ID) == shadow, "week without a package takes the first copy")
+		songs.erase(shadow)
+	var other_week := WeekMeta.from_json({"id": "zz-no-banner", "songs": [SONG_ID]}, MOD_ROOT)
+	check(other_week.banner_path() == Ui.MENUS_ROOT.path_join("weeks/zz-no-banner.png"), "missing pack banner falls back to the shared menu art")
 	check(_content.call("cutscene_path", SONG_ID, false) == MOD_ROOT.path_join("assets/videos/intro.ogv"), "pack cutscene resolves inside the pack")
+	check(_content.call("cutscene_path", SONG_ID, false, MOD_ROOT) == MOD_ROOT.path_join("assets/videos/intro.ogv"), "cutscene looked up from the given package")
 	var strumline: GDScript = load("res://scenes/play/Strumline.gd")
 	check(strumline.note_image_path("confirm", 3, song.package_root) == MOD_ROOT.path_join("assets/imported/notes/confirm_right.png"), "pack note art used")
 	var host := root.get_node("/root/ModHost")

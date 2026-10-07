@@ -81,7 +81,7 @@ python tools/convert_audio.py --update-manifests --delete-wav --ffmpeg /path/to/
 ] }
 ```
 
-A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `user://content/data/weeks.imported.json` are listed first, then `data/weeks.imported.json` (written by the Psych importer, gitignored), then the shipped `data/weeks.json`; when several define the same id, the first one is used. Weeks from enabled mods are added after the base package's weeks.
+A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `user://content/data/weeks.imported.json` are listed first, then `data/weeks.imported.json` (written by the Psych importer, gitignored), then the shipped `data/weeks.json`; when several define the same id, the first one is used. Weeks from enabled mods are added after the base package's weeks, in Mods screen order, and a week whose id is already listed is skipped. A week plays each song from its own package when that package has a song with that id, otherwise the first installed one.
 
 ## Cutscenes
 
@@ -166,11 +166,18 @@ A content pack is a mod folder. It is how content is added to an installed game 
   assets/icons/                            health icons named by "playerIcon" / "opponentIcon"
   assets/stages/                           stage images named by "stageImage"
   assets/imported/notes/<kind>_<lane>.png  note art for this pack's songs
+  assets/imported/menus/weeks/<week-id>.png  Story Mode banner for this pack's week
   assets/videos/                           cutscene videos
   scripts/*.lua                            Lua scripts
 ```
 
 Only `mod.json` is required. The `assets/` subfolders are a convention: `song.json` names every asset path, so any layout inside the pack works.
+
+A pack's week plays its songs from the same pack when another package has songs with the same ids, and a week id already listed by the base content or by a mod earlier in Mods screen order is skipped.
+
+### Packs from an imported library
+
+`python tools/make_content_packs.py` turns each week of `data/weeks.imported.json` (not the demo week) into a pack at `build/packs/<week-id>.zip`, holding a `fnf-<week-id>/` mod folder with the week's songs, charts, stages, character folders (with any attached speaker), icons, stage images, all 24 note images, the week banner and the week's cutscene entries and videos. Characters shared between weeks, such as bf and gf, are copied into each pack. Every mod folder is checked with `tools/validate_jave_mod.py` before it is zipped. `--weeks week1 weekend1` builds only those weeks, `--out DIR` writes elsewhere, and `--dry-run` lists each pack without writing. The packs hold the user's own imported content, for the user's own devices; they grant no redistribution rights.
 
 ### Zip layout
 
@@ -195,7 +202,7 @@ Web builds have no importer and no Import content pack row.
 
 ## Images and animation
 
-Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
+Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art and the title font are read from `assets/imported/menus/`; menus fall back to plain text when it is missing. A week banner (`weeks/<week-id>.png`) is read from the week's mod first, then from the base content. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
 
 ## Checklist
 

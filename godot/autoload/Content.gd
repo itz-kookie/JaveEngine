@@ -54,6 +54,14 @@ func find_song(id: String) -> SongMeta:
 	return null
 
 
+## The copy of a song from the week's own package when there is one, otherwise the first song with that id.
+func find_week_song(week: WeekMeta, id: String) -> SongMeta:
+	for song in songs:
+		if song.id == id and song.package_root == week.package_root:
+			return song
+	return find_song(id)
+
+
 func reload_stage(song: SongMeta) -> void:
 	var stage: Variant = JsonRead.load_file(song.stage_config_path)
 	if stage is Dictionary:
@@ -70,9 +78,10 @@ func chart_path_for(song: SongMeta) -> String:
 
 
 ## Empty when the song has no cutscene on that side or the manifest entry is rejected.
-## Manifests are read from the song's own package first, then the base content, then the other enabled mods.
-func cutscene_path(song_id: String, outro: bool) -> String:
-	for package_root in _cutscene_packages(song_id):
+## Manifests are read from the song's own package first (song_package, or else that of the first song with the id),
+## then the base content, then the other enabled mods.
+func cutscene_path(song_id: String, outro: bool, song_package := "") -> String:
+	for package_root in _cutscene_packages(song_id, song_package):
 		var manifest: Variant = JsonRead.load_file(_package_file(package_root, CUTSCENE_MANIFEST))
 		var relative := CutsceneManifest.relative_path(manifest, song_id, outro)
 		if relative.is_empty():
@@ -112,12 +121,14 @@ func _prefer_user_mirror(path: String) -> String:
 	return override if FileAccess.file_exists(override) else path
 
 
-func _cutscene_packages(song_id: String) -> PackedStringArray:
+func _cutscene_packages(song_id: String, song_package: String) -> PackedStringArray:
 	var roots := _enabled_package_roots()
-	var song := find_song(song_id)
-	if song != null and roots.has(song.package_root):
-		roots.remove_at(roots.find(song.package_root))
-		roots.insert(0, song.package_root)
+	if song_package.is_empty():
+		var song := find_song(song_id)
+		song_package = song.package_root if song != null else ""
+	if roots.has(song_package):
+		roots.remove_at(roots.find(song_package))
+		roots.insert(0, song_package)
 	return roots
 
 
@@ -131,9 +142,9 @@ func _week_lists(package_root: String) -> Array[Array]:
 	var lists: Array[Array] = []
 	if package_root == Paths.CONTENT_ROOT:
 		var imported := package_root.path_join(IMPORTED_WEEKS_FILE)
-		lists.append(_read_weeks(Paths.user_mirror(imported)))
-		lists.append(_read_weeks(imported))
-	lists.append(_read_weeks(package_root.path_join(WEEKS_FILE)))
+		lists.append(_read_weeks(Paths.user_mirror(imported), package_root))
+		lists.append(_read_weeks(imported, package_root))
+	lists.append(_read_weeks(package_root.path_join(WEEKS_FILE), package_root))
 	return lists
 
 
@@ -178,13 +189,13 @@ static func playable_weeks(lists: Array[Array], has_song: Callable) -> Array[Wee
 	return result
 
 
-static func _read_weeks(path: String) -> Array[WeekMeta]:
+static func _read_weeks(path: String, package_root: String) -> Array[WeekMeta]:
 	var result: Array[WeekMeta] = []
 	var json: Variant = JsonRead.load_file(path)
 	for item: Variant in JsonRead.array(json, "weeks"):
 		if not item is Dictionary:
 			continue
-		var week := WeekMeta.from_json(item)
+		var week := WeekMeta.from_json(item, package_root)
 		if not week.id.is_empty() and not week.song_ids.is_empty():
 			result.append(week)
 	return result

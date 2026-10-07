@@ -106,7 +106,7 @@ func start_song(song: SongMeta, botplay := _default_botplay) -> void:
 func start_week(week: WeekMeta) -> void:
 	story_queue.clear()
 	for song_id in week.song_ids:
-		var song := Content.find_song(song_id)
+		var song := Content.find_week_song(week, song_id)
 		if song != null:
 			story_queue.append(song)
 	if story_queue.is_empty():
@@ -224,7 +224,7 @@ func _on_song_finished(result: Gameplay, play_id: int) -> void:
 func _start_cutscene(song: SongMeta, outro: bool) -> bool:
 	if not playing_story:
 		return false
-	var path := Content.cutscene_path(song.id, outro)
+	var path := Content.cutscene_path(song.id, outro, song.package_root)
 	if path.is_empty():
 		return false
 	Conductor.stop()
