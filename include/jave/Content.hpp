@@ -53,6 +53,7 @@ struct Song {
     std::string playerCharacter{"bf"};
     std::string opponentCharacter{"dad"};
     std::string girlfriendCharacter{"gf"};
+    std::filesystem::path packageRoot;
     std::filesystem::path audioPath;
     std::filesystem::path chartPath;
     std::filesystem::path stageImage;
@@ -80,6 +81,7 @@ struct Week {
     std::string storyName;
     std::vector<std::string> songIds;
     std::array<int, 3> color{95, 227, 255};
+    std::filesystem::path packageRoot;
 };
 
 struct ModInfo {
@@ -88,6 +90,7 @@ struct ModInfo {
     std::string version;
     std::string author;
     std::string description;
+    int order{};
     bool enabled{true};
     std::filesystem::path root;
 };
@@ -126,6 +129,9 @@ public:
     [[nodiscard]] const std::vector<Week>& weeks() const { return weeks_; }
     [[nodiscard]] const std::vector<ModInfo>& mods() const { return mods_; }
     [[nodiscard]] const Song* findSong(std::string_view id) const;
+    [[nodiscard]] const Song* findWeekSong(const Week& week, std::string_view id) const;
+    [[nodiscard]] std::filesystem::path assetPath(const std::filesystem::path& relative) const;
+    [[nodiscard]] std::filesystem::path cutscenePath(const Song& song, bool outro) const;
     [[nodiscard]] const std::filesystem::path& root() const { return root_; }
 
     static Settings loadSettings(const std::filesystem::path& root);
@@ -134,6 +140,7 @@ public:
 private:
     std::filesystem::path root_;
     std::vector<Song> songs_;
+    std::vector<Song> packageSongs_;
     std::vector<Week> weeks_;
     std::vector<ModInfo> mods_;
 };

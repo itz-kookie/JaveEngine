@@ -45,6 +45,7 @@ ContentLibrary::ContentLibrary(std::filesystem::path root) : root_(std::move(roo
 
 void ContentLibrary::scan() {
     songs_.clear();
+    packageSongs_.clear();
     weeks_.clear();
     mods_.clear();
 
@@ -63,12 +64,16 @@ void ContentLibrary::scan() {
                 mod.version = json["version"].asString("0.0.0");
                 mod.author = json["author"].asString("Unknown");
                 mod.description = json["description"].asString();
+                mod.order = json["order"].asInt(0);
                 mod.enabled = json["enabled"].asBool(true);
                 mods_.push_back(std::move(mod));
             } catch (...) {}
         }
     }
-    std::sort(mods_.begin(), mods_.end(), [](const ModInfo& a, const ModInfo& b) { return a.name < b.name; });
+    std::sort(mods_.begin(), mods_.end(), [](const ModInfo& a, const ModInfo& b) {
+        if (a.order != b.order) return a.order < b.order;
+        return a.name < b.name;
+    });
 
     const auto scanSongs = [&](const std::filesystem::path& packageRoot) {
         const auto songRoot = packageRoot / "songs";
@@ -80,6 +85,7 @@ void ContentLibrary::scan() {
             try {
                 const Json json = Json::fromFile(manifest);
                 Song song;
+                song.packageRoot = packageRoot;
                 song.id = json["id"].asString(entry.path().filename().string());
                 song.title = json["title"].asString(song.id);
                 song.artist = json["artist"].asString("Unknown artist");
@@ -118,13 +124,13 @@ void ContentLibrary::scan() {
                 song.stageConfigPath = packageRoot / "data" / "stages" / (song.stage + ".json");
                 reloadStage(song);
                 if (song.id.empty() || !std::filesystem::exists(song.chartPath)) continue;
-                songs_.push_back(std::move(song));
+                packageSongs_.push_back(song);
+                if (!findSong(song.id)) songs_.push_back(std::move(song));
             } catch (...) {
                 // Invalid packages are skipped; the engine log reports load errors when selected.
             }
         }
     };
-    scanSongs(root_);
     for (const ModInfo& mod : mods_) if (mod.enabled) scanSongs(mod.root);
     std::sort(songs_.begin(), songs_.end(), [](const Song& a, const Song& b) {
         if (a.order != b.order) return a.order < b.order;
@@ -138,6 +144,7 @@ void ContentLibrary::scan() {
             const Json json = Json::fromFile(weekFile);
             for (const Json& item : json["weeks"].asArray()) {
                 Week week;
+                week.packageRoot = weekFile.parent_path().parent_path();
                 week.id = item["id"].asString();
                 week.name = item["name"].asString(week.id);
                 week.storyName = item["storyName"].asString();
@@ -153,14 +160,57 @@ void ContentLibrary::scan() {
             }
         } catch (...) {}
     };
-    scanWeeks(root_ / "data" / "weeks.imported.json", 0);
-    scanWeeks(root_ / "data" / "weeks.json", 0);
-    for (const ModInfo& mod : mods_) if (mod.enabled) scanWeeks(mod.root / "data" / "weeks.json", weeks_.size());
+    for (const ModInfo& mod : mods_) if (mod.enabled) scanWeeks(mod.root / "data" / "weeks.json", 0);
 }
 
 const Song* ContentLibrary::findSong(std::string_view id) const {
     const auto found = std::find_if(songs_.begin(), songs_.end(), [&](const Song& song) { return song.id == id; });
     return found == songs_.end() ? nullptr : &*found;
+}
+
+const Song* ContentLibrary::findWeekSong(const Week& week, std::string_view id) const {
+    const auto packageSong = std::find_if(packageSongs_.begin(), packageSongs_.end(), [&](const Song& song) {
+        return song.id == id && song.packageRoot == week.packageRoot;
+    });
+    return packageSong == packageSongs_.end() ? findSong(id) : &*packageSong;
+}
+
+std::filesystem::path ContentLibrary::assetPath(const std::filesystem::path& relative) const {
+    for (const ModInfo& mod : mods_) {
+        if (!mod.enabled) continue;
+        const auto candidate = mod.root / relative;
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return root_ / relative;
+}
+
+std::filesystem::path ContentLibrary::cutscenePath(const Song& song, bool outro) const {
+    const auto findInPackage = [&](const ModInfo& mod) -> std::filesystem::path {
+        try {
+            const Json scenes = Json::fromFile(mod.root / "data" / "cutscenes.json");
+            const auto relative = scenes[song.id][outro ? "after" : "before"].asString();
+            if (relative.empty()) return {};
+            const auto part = std::filesystem::path(relative);
+            if (part.is_absolute() || part.has_root_name()) return {};
+            bool unsafe = false;
+            for (const auto& component : part) if (component == "..") unsafe = true;
+            if (unsafe) return {};
+            const auto candidate = mod.root / part;
+            if (std::filesystem::is_regular_file(candidate)) return candidate;
+        } catch (...) {}
+        return {};
+    };
+    for (const ModInfo& mod : mods_) {
+        if (mod.enabled && mod.root == song.packageRoot) {
+            if (const auto path = findInPackage(mod); !path.empty()) return path;
+            break;
+        }
+    }
+    for (const ModInfo& mod : mods_) {
+        if (!mod.enabled || mod.root == song.packageRoot) continue;
+        if (const auto path = findInPackage(mod); !path.empty()) return path;
+    }
+    return {};
 }
 
 void ContentLibrary::toggleMod(std::size_t index) {

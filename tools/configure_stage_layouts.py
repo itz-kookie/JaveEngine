@@ -42,9 +42,12 @@ def configure(package):
         print('Configured',stage_id)
 
 
-def add_limo_floor(psych_root):
+def add_limo_floor(psych_root, package):
     folder = psych_root/'assets/week4/images/limo'
-    destination = ROOT/'assets/imported/stages/limo.png'
+    destination = package/'assets/imported/stages/limo.png'
+    if not (folder/'limoSunset.png').is_file():
+        raise FileNotFoundError(f"Missing Psych Engine limo assets: {folder}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
     canvas = ImageOps.fit(Image.open(folder/'limoSunset.png').convert('RGBA'), (1280,720))
     for asset, bottom, target_width in (('bgLimo',610,1280),('limoDrive',735,1460)):
         frame = next(iter(ET.parse(folder/f'{asset}.xml').getroot())).attrib
@@ -59,8 +62,29 @@ def add_limo_floor(psych_root):
     canvas.save(destination)
 
 
+def target_packages(mods_root):
+    packages = []
+    for path in sorted(mods_root.glob('*')):
+        manifest_path = path/'mod.json'
+        if not path.is_dir() or not (path/'songs').is_dir() or not manifest_path.is_file():
+            continue
+        manifest = json.loads(manifest_path.read_bytes())
+        if str(manifest.get('id', '')).startswith('fnf-') and not manifest.get('sourceOnly', False):
+            packages.append(path)
+    return packages
+
+
+def has_limo_stage(package):
+    songs = [json.loads(p.read_bytes()) for p in (package/'songs').glob('*/song.json')]
+    return any(song.get('stage') == 'limo' for song in songs)
+
+
 if __name__ == '__main__':
-    configure(ROOT)
     import sys
+    packages = target_packages(ROOT/'mods')
+    for package in packages:
+        configure(package)
     if len(sys.argv)>1:
-        add_limo_floor(Path(sys.argv[1]))
+        for package in packages:
+            if has_limo_stage(package):
+                add_limo_floor(Path(sys.argv[1]), package)

@@ -124,7 +124,8 @@ def main():
         background.alpha_composite(frame)
         background.alpha_composite(eyes[min(index, len(eyes)-1)].resize((85, 30)), (32, 252))
         frames[index] = background
-    destination = args.jave_root / "assets/imported/characters/nene-large-speaker"
+    package_root = args.jave_root / "mods" / "fnf-original"
+    destination = package_root / "assets/imported/characters/nene-large-speaker"
     (destination / "idle").mkdir(parents=True, exist_ok=True)
     for index, frame in enumerate(frames):
         frame.save(destination / "idle" / f"frame_{index:03d}.png")
@@ -133,7 +134,7 @@ def main():
                 "idle": {"frames": len(frames), "fps": fps, "loop": False,
                          "width": frames[0].width, "height": frames[0].height}}
     (destination / "animation.json").write_text(json.dumps(metadata, indent=2)+"\n")
-    character = args.jave_root / "assets/imported/characters/nene/animation.json"
+    character = package_root / "assets/imported/characters/nene/animation.json"
     nene = json.loads(character.read_bytes())
     nene["speaker"] = {"assetPath": "../nene-large-speaker", "overlap": 140}
     character.write_text(json.dumps(nene, indent=2)+"\n")

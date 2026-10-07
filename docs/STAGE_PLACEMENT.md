@@ -1,6 +1,6 @@
 # Stage placement
 
-A song's `stage` field selects `data/stages/<stage>.json` in the same package (the repository root, or the mod folder for a mod's songs). The stage file is re-read every time a song starts or restarts, so **Restart Song** in the pause menu applies edits without restarting the game.
+A song's `stage` field selects `data/stages/<stage>.json` in the same mod folder. The stage file is re-read every time a song starts or restarts, so **Restart Song** in the pause menu applies edits without restarting the game.
 
 ## Stage file
 

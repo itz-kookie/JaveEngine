@@ -58,13 +58,12 @@ static func note_image_path(kind: String, lane: int, package_root := "") -> Stri
 	return pick_note_image(note_dirs(package_root), kind, lane)
 
 
-## Where note art is looked for, best first: the song's mod, user://content, the base content, then the demo arrows.
+## Where note art is looked for, best first: the song's mod, user://content, then the engine-owned demo arrows.
 static func note_dirs(package_root: String) -> PackedStringArray:
 	var dirs := PackedStringArray()
 	if not package_root.is_empty() and package_root != Paths.CONTENT_ROOT:
 		dirs.append(package_root.path_join(IMPORTED_NOTES))
 	dirs.append(Paths.user_mirror(Paths.content(IMPORTED_NOTES)))
-	dirs.append(Paths.content(IMPORTED_NOTES))
 	dirs.append(Paths.content(DEMO_NOTES))
 	return dirs
 

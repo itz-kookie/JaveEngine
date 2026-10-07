@@ -487,7 +487,7 @@ def mix_audio(ffmpeg: str, source_dir: Path, destination: Path) -> str:
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("psych_root", type=Path, help="Psych Engine installation (holds assets/)")
-parser.add_argument("jave_root", type=Path, help="Jave Engine content root to write into")
+parser.add_argument("jave_root", type=Path, help="Jave Engine repository root (content is written as a mod)")
 parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"), help="ffmpeg with the libvorbis encoder (default: ffmpeg on PATH)")
 parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--notes-only", action="store_true",
@@ -495,15 +495,17 @@ parser.add_argument("--notes-only", action="store_true",
 parser.add_argument("--characters-only", action="store_true")
 parser.add_argument("--character", action="append", help="character ID to rebuild with --characters-only")
 args = parser.parse_args()
+package_root = args.jave_root / "mods" / "fnf-original"
+package_root.mkdir(parents=True, exist_ok=True)
 
 if args.characters_only:
-    character_ids = set(args.character) if args.character else {path.name for path in (args.jave_root / "assets/imported/characters").iterdir() if path.is_dir()}
-    create_character_visuals(args.psych_root / "assets", args.jave_root, character_ids, force=True)
+    character_ids = set(args.character) if args.character else {path.name for path in (package_root / "assets/imported/characters").iterdir() if path.is_dir()}
+    create_character_visuals(args.psych_root / "assets", package_root, character_ids, force=True)
     print(f"Rebuilt {len(character_ids)} character animations")
     raise SystemExit(0)
 
 if args.notes_only:
-    note_images = create_note_images(args.psych_root / "assets", args.jave_root)
+    note_images = create_note_images(args.psych_root / "assets", package_root)
     print(f"done: rebuilt {len(note_images)} Psych note PNGs with baked RGB palettes")
     raise SystemExit(0)
 
@@ -517,9 +519,9 @@ if not audio_root.is_dir() or not chart_root.is_dir():
     raise SystemExit("Expected Psych assets/songs and assets/shared/data folders")
 
 weeks, story_order = read_psych_weeks(assets)
-stage_images = create_stage_images(assets, args.jave_root)
-stage_configs = read_stage_configs(assets, args.jave_root)
-note_images = create_note_images(assets, args.jave_root)
+stage_images = create_stage_images(assets, package_root)
+stage_configs = read_stage_configs(assets, package_root)
+note_images = create_note_images(assets, package_root)
 jobs = []
 records = []
 character_ids = set()
@@ -538,11 +540,11 @@ for chart_dir in sorted(path for path in chart_root.iterdir() if path.is_dir()):
     try:
         order, week_id = story_order.get(song_id, (100000, ""))
         fallback_stage = SPECIAL_STAGE.get(song_id, WEEK_STAGE.get(week_id, "stage"))
-        chart_destination = args.jave_root / "data" / "charts" / f"{song_id}.json"
+        chart_destination = package_root / "data" / "charts" / f"{song_id}.json"
         details = convert_chart(chart_source, chart_destination, song_id, fallback_stage)
         if song_id in SPECIAL_STAGE:
             details["stage"] = SPECIAL_STAGE[song_id]
-        song_dir = args.jave_root / "songs" / song_id
+        song_dir = package_root / "songs" / song_id
         song_dir.mkdir(parents=True, exist_ok=True)
         character_ids.update((details["player"], details["opponent"], details["girlfriend"]))
         records.append({"songId": song_id, "weekId": week_id, "order": order, "details": details,
@@ -550,8 +552,8 @@ for chart_dir in sorted(path for path in chart_root.iterdir() if path.is_dir()):
     except Exception as exc:
         errors.append((song_id, f"chart conversion failed: {exc}"))
 
-character_visuals = create_character_visuals(assets, args.jave_root, character_ids)
-icon_paths = {character_id: create_icon(assets, args.jave_root, character_id) for character_id in character_ids}
+character_visuals = create_character_visuals(assets, package_root, character_ids)
+icon_paths = {character_id: create_icon(assets, package_root, character_id) for character_id in character_ids}
 
 for record in records:
     song_id = record["songId"]
@@ -594,7 +596,7 @@ for record in records:
 available_ids = {record["songId"] for record in records}
 for week in weeks:
     week["songs"] = [song_id for song_id in week["songs"] if song_id in available_ids]
-(args.jave_root / "data" / "weeks.imported.json").write_text(json.dumps({"format": "jave-weeks-v1", "weeks": weeks}, indent=2) + "\n", encoding="utf-8")
+(package_root / "data" / "weeks.json").write_text(json.dumps({"format": "jave-weeks-v1", "weeks": weeks}, indent=2) + "\n", encoding="utf-8")
 
 
 def run_job(job):
@@ -629,7 +631,7 @@ for song_id, reason in skipped:
     destination.write_text(reason + "\n", encoding="utf-8")
 
 converted.sort()
-character_dirs = list((args.jave_root / "assets" / "imported" / "characters").iterdir())
+character_dirs = list((package_root / "assets" / "imported" / "characters").iterdir())
 animation_frame_count = sum(1 for character_dir in character_dirs for _ in character_dir.rglob("frame_*.png"))
 fallback_pose_count = sum(
     pose.read_bytes() == (character_dir / "idle.png").read_bytes()
@@ -674,7 +676,18 @@ report += [
     "and charts remain subject to their original rights; this package does not grant permission",
     "to redistribute them.", "",
 ]
-(args.jave_root / "PSYCH_IMPORT_REPORT.md").write_text("\n".join(report), encoding="utf-8")
+(package_root / "IMPORT_REPORT.md").write_text("\n".join(report), encoding="utf-8")
 print(f"done: {len(converted)} converted, {len(skipped)} skipped, {len(errors)} errors")
 if errors:
     raise SystemExit(1)
+
+# A successful full library import turns the source package into the active aggregate mod.
+# Validate tools and conversion errors first so a failed import cannot change load priority.
+manifest_path = package_root / "mod.json"
+mod_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {
+    "id": "fnf-original", "name": "FNF Original Library", "version": "1.0.0",
+    "author": "User-supplied content", "description": "Locally imported songs and assets.",
+}
+mod_manifest.update({"enabled": True, "order": -120})
+mod_manifest.pop("sourceOnly", None)
+manifest_path.write_text(json.dumps(mod_manifest, indent=2) + "\n", encoding="utf-8")

@@ -6,6 +6,7 @@ var name := ""
 var version := ""
 var author := ""
 var description := ""
+var order := 0
 var enabled := true
 var root := ""
 
@@ -18,5 +19,6 @@ static func from_json(json: Dictionary, mod_root: String) -> ModInfo:
 	mod.version = JsonRead.string(json, "version", "0.0.0")
 	mod.author = JsonRead.string(json, "author", "Unknown")
 	mod.description = JsonRead.string(json, "description")
+	mod.order = JsonRead.integer(json, "order", 0)
 	mod.enabled = JsonRead.boolean(json, "enabled", true)
 	return mod

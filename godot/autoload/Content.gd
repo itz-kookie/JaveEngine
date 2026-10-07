@@ -2,14 +2,14 @@ extends Node
 
 const CUTSCENE_MANIFEST := "data/cutscenes.json"
 const WEEKS_FILE := "data/weeks.json"
-## Written by tools/import_psych_library.py and kept out of git; its weeks list before the shipped ones.
-## A copy under user://content is read before the one in the content folder.
-const IMPORTED_WEEKS_FILE := "data/weeks.imported.json"
 
 var songs: Array[SongMeta] = []
+## All package copies remain available for week-specific song resolution.
+var package_songs: Array[SongMeta] = []
 var weeks: Array[WeekMeta] = []
 var mods: Array[ModInfo] = []
-var mod_roots := PackedStringArray([Paths.content("mods"), Paths.user("mods")])
+## User-installed copies are scanned first so a package can update a built-in mod with the same id.
+var mod_roots := PackedStringArray([Paths.user("mods"), Paths.content("mods")])
 var mod_overrides_path := Paths.user("config/mods.json")
 
 
@@ -19,6 +19,7 @@ func _ready() -> void:
 
 func scan() -> void:
 	songs.clear()
+	package_songs.clear()
 	weeks.clear()
 	mods.clear()
 	for mod_root in mod_roots:
@@ -30,8 +31,10 @@ func scan() -> void:
 		_scan_songs(package_root)
 	songs.sort_custom(_song_before)
 	var has_song := func(id: String) -> bool: return find_song(id) != null
+	var all_week_lists: Array[Array] = []
 	for package_root in _enabled_package_roots():
-		weeks.append_array(playable_weeks(_week_lists(package_root), has_song))
+		all_week_lists.append_array(_week_lists(package_root))
+	weeks = playable_weeks(all_week_lists, has_song)
 
 
 ## Flips a mod's enabled state, persists it, and rescans so its songs and weeks appear or vanish.
@@ -57,14 +60,19 @@ func find_song(id: String) -> SongMeta:
 
 ## The copy of a song from the week's own package when there is one, otherwise the first song with that id.
 func find_week_song(week: WeekMeta, id: String) -> SongMeta:
-	for song in songs:
+	for song in package_songs:
 		if song.id == id and song.package_root == week.package_root:
 			return song
 	return find_song(id)
 
 
 func reload_stage(song: SongMeta) -> void:
-	var stage: Variant = JsonRead.load_file(song.stage_config_path)
+	var stage_path := _prefer_user_mirror(song.stage_config_path)
+	if not FileAccess.file_exists(stage_path) and song.package_root.begins_with(Paths.content("mods")):
+		var legacy_stage := Paths.user("content/data/stages/%s.json" % song.stage)
+		if FileAccess.file_exists(legacy_stage):
+			stage_path = legacy_stage
+	var stage: Variant = JsonRead.load_file(stage_path)
 	if stage is Dictionary:
 		song.apply_stage(stage)
 
@@ -75,12 +83,19 @@ func load_chart(song: SongMeta) -> ChartData:
 
 ## A chart saved from the editor over shipped content wins over the original.
 func chart_path_for(song: SongMeta) -> String:
-	return _prefer_user_mirror(song.chart_path)
+	var override := Paths.user_mirror(song.chart_path)
+	if FileAccess.file_exists(override):
+		return override
+	if song.package_root.begins_with(Paths.content("mods")):
+		var legacy_override := Paths.user("content/data/charts/%s.json" % song.id)
+		if FileAccess.file_exists(legacy_override):
+			return legacy_override
+	return song.chart_path
 
 
 ## Empty when the song has no cutscene on that side or the manifest entry is rejected.
 ## Manifests are read from the song's own package first (song_package, or else that of the first song with the id),
-## then the base content, then the other enabled mods.
+## then the other enabled mods.
 func cutscene_path(song_id: String, outro: bool, song_package := "") -> String:
 	for package_root in _cutscene_packages(song_id, song_package):
 		var manifest: Variant = JsonRead.load_file(_package_file(package_root, CUTSCENE_MANIFEST))
@@ -117,14 +132,13 @@ static func preferred_audio(path: String) -> String:
 	return ogg if FileAccess.file_exists(ogg) else path
 
 
-## Where menu art is looked for, best first: enabled mods in Mods screen order, user://content, then the base content.
+## Where menu art is looked for, best first: enabled mods in Mods screen order, then user://content overrides.
 func menu_folders() -> PackedStringArray:
 	var folders := PackedStringArray()
 	for mod in mods:
 		if mod.enabled:
 			folders.append(mod.root.path_join(Ui.MENUS_FOLDER))
 	folders.append(Paths.user_mirror(Ui.MENUS_ROOT))
-	folders.append(Ui.MENUS_ROOT)
 	return folders
 
 
@@ -144,24 +158,18 @@ func _cutscene_packages(song_id: String, song_package: String) -> PackedStringAr
 	return roots
 
 
-## Base content files can be overridden by their user://content twin; mod files are used as they are.
+## Shipped package files can be overridden by their user://content twin; user-installed mod files are writable in place.
 func _package_file(package_root: String, relative: String) -> String:
 	var path := package_root.path_join(relative)
-	return _prefer_user_mirror(path) if package_root == Paths.CONTENT_ROOT else path
+	return _prefer_user_mirror(path) if package_root.begins_with(Paths.CONTENT_ROOT) else path
 
 
 func _week_lists(package_root: String) -> Array[Array]:
-	var lists: Array[Array] = []
-	if package_root == Paths.CONTENT_ROOT:
-		var imported := package_root.path_join(IMPORTED_WEEKS_FILE)
-		lists.append(_read_weeks(Paths.user_mirror(imported), package_root))
-		lists.append(_read_weeks(imported, package_root))
-	lists.append(_read_weeks(package_root.path_join(WEEKS_FILE), package_root))
-	return lists
+	return [_read_weeks(package_root.path_join(WEEKS_FILE), package_root)]
 
 
 func _enabled_package_roots() -> PackedStringArray:
-	var roots := PackedStringArray([Paths.CONTENT_ROOT])
+	var roots := PackedStringArray()
 	for mod in mods:
 		if mod.enabled:
 			roots.append(mod.root)
@@ -173,7 +181,10 @@ func _scan_mods(mod_root: String) -> void:
 		var root := mod_root.path_join(folder)
 		var manifest: Variant = JsonRead.load_file(root.path_join("mod.json"))
 		if manifest is Dictionary:
-			mods.append(ModInfo.from_json(manifest, root))
+			var mod := ModInfo.from_json(manifest, root)
+			if not mod.id.is_empty() and mods.any(func(existing: ModInfo) -> bool: return existing.id == mod.id):
+				continue
+			mods.append(mod)
 
 
 func _scan_songs(package_root: String) -> void:
@@ -184,7 +195,10 @@ func _scan_songs(package_root: String) -> void:
 			continue
 		var song := SongMeta.from_json(manifest, package_root, folder)
 		reload_stage(song)
-		if not song.id.is_empty() and FileAccess.file_exists(song.chart_path):
+		if song.id.is_empty() or not FileAccess.file_exists(song.chart_path):
+			continue
+		package_songs.append(song)
+		if find_song(song.id) == null:
 			songs.append(song)
 
 
@@ -218,6 +232,8 @@ static func _directories_at(path: String) -> PackedStringArray:
 
 
 static func _mod_before(a: ModInfo, b: ModInfo) -> bool:
+	if a.order != b.order:
+		return a.order < b.order
 	if a.name != b.name:
 		return a.name < b.name
 	return a.root < b.root

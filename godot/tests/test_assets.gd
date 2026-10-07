@@ -72,12 +72,12 @@ func _test_note_images_fall_back_to_demo() -> void:
 func _test_note_dir_order(strumline: GDScript, demo_dir: String) -> void:
 	var user_dir := TEST_HOME + "/content/assets/imported/notes"
 	var base_dirs: PackedStringArray = strumline.note_dirs("res://content")
-	check(base_dirs == PackedStringArray([user_dir, "res://content/assets/imported/notes", demo_dir]),
-		"base songs look in user://content, then the content folder, then the demo arrows (got %s)" % [base_dirs])
+	check(base_dirs == PackedStringArray([user_dir, demo_dir]),
+		"songs use the user override then the engine-owned demo arrows (got %s)" % [base_dirs])
 	check(strumline.note_dirs("") == base_dirs, "no package means the base lookup")
 	var mod_root := TEMP_DIR.path_join("mod")
 	var mod_dirs: PackedStringArray = strumline.note_dirs(mod_root)
-	check(mod_dirs.size() == 4 and mod_dirs[0] == mod_root.path_join("assets/imported/notes") and mod_dirs[1] == user_dir,
+	check(mod_dirs.size() == 3 and mod_dirs[0] == mod_root.path_join("assets/imported/notes") and mod_dirs[1] == user_dir,
 		"a mod song looks in its own package first (got %s)" % [mod_dirs])
 	var mod_notes := mod_dirs[0]
 	DirAccess.make_dir_recursive_absolute(mod_notes)

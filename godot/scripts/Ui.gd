@@ -12,7 +12,7 @@ static var accent := Color8(95, 227, 255)
 static var accent2 := Color8(255, 81, 170)
 static var _bold_font: SystemFont
 ## Set by Content.scan(); until then only the user://content copy and the base content are searched.
-static var _menu_folders := PackedStringArray(["user://content/" + MENUS_FOLDER, MENUS_ROOT])
+static var _menu_folders := PackedStringArray(["user://content/" + MENUS_FOLDER])
 static var _menu_assets: Dictionary[String, String] = {}
 
 

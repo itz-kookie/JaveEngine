@@ -1,0 +1,9 @@
+{
+  "id": "jave-demo",
+  "name": "Jave Demo",
+  "version": "1.0.0",
+  "author": "Jave Engine",
+  "description": "Original Neon Steps demo content, licensed CC0-1.0.",
+  "enabled": true,
+  "order": -110
+}

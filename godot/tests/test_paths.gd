@@ -111,11 +111,13 @@ func _test_week_merging() -> void:
 
 func _test_user_imported_weeks() -> void:
 	var content: Node = root.get_node("/root/Content")
-	var user_file := TEST_HOME + "/content/data/weeks.imported.json"
-	var backup := FileAccess.get_file_as_string(user_file) if FileAccess.file_exists(user_file) else ""
-	var created_dirs := not DirAccess.dir_exists_absolute(TEST_HOME + "/content")
-	DirAccess.make_dir_recursive_absolute(user_file.get_base_dir())
-	_write(user_file, JSON.stringify({"weeks": [
+	var saved_roots: PackedStringArray = content.get("mod_roots")
+	var paths_node: Node = root.get_node("/root/Paths")
+	content.set("mod_roots", PackedStringArray([TEST_HOME + "/mods", paths_node.call("content", "mods")]))
+	var mod_root := TEST_HOME + "/mods/zz-user-week"
+	DirAccess.make_dir_recursive_absolute(mod_root.path_join("data"))
+	_write(mod_root.path_join("mod.json"), JSON.stringify({"id": "zz-user-week", "name": "User Week", "order": -200}))
+	_write(mod_root.path_join("data/weeks.json"), JSON.stringify({"weeks": [
 		{"id": "zz-user-week", "name": "User Week", "songs": ["neon-steps"]},
 		{"id": "demo", "name": "User Demo", "songs": ["neon-steps"]},
 		{"id": "zz-missing", "songs": ["no-such-song"]},
@@ -127,20 +129,16 @@ func _test_user_imported_weeks() -> void:
 		ids.append(week.id)
 		if week.id == "demo":
 			demo_name = week.name
-	check(ids.size() >= 2 and ids[0] == "zz-user-week", "user://content imported weeks are listed first (got %s)" % [ids])
-	check(demo_name == "User Demo", "a user imported week wins over a shipped week with the same id")
+	check(ids.size() >= 2 and ids[0] == "zz-user-week", "user mods sort by their declared order (got %s)" % [ids])
+	check(demo_name == "User Demo", "the earlier mod week wins over a later package's matching id (got %s)" % demo_name)
 	check(not ids.has("zz-missing"), "user weeks without installed songs are hidden")
-	if backup.is_empty():
-		DirAccess.remove_absolute(user_file)
-	else:
-		_write(user_file, backup)
-	if created_dirs:
-		_remove_tree(TEST_HOME + "/content")
+	_remove_tree(mod_root)
+	content.set("mod_roots", saved_roots)
 	content.call("scan")
 	var restored := PackedStringArray()
 	for week: WeekMeta in content.get("weeks"):
 		restored.append(week.id)
-	check(not restored.has("zz-user-week"), "removing the user file removes its weeks")
+	check(not restored.has("zz-user-week"), "removing the user mod removes its week")
 
 
 static func _write(path: String, text: String) -> void:

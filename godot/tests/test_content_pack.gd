@@ -19,8 +19,6 @@ const MENU_FILES: PackedStringArray = ["alphabet/glyphs.json", "alphabet/41.png"
 var _ran := false
 var _content: Node
 var _failed_message := ""
-## A banner the base content ships, also put in the menu pack; empty when the base content has none.
-var _shipped_banner := ""
 
 
 ## Content and the scenes reference autoloads, which exist from the first frame.
@@ -55,7 +53,7 @@ func _run_all() -> void:
 
 
 func _build_pack() -> void:
-	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/songs/neon-steps/song.json"))
+	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/mods/jave-demo/songs/neon-steps/song.json"))
 	manifest.merge({
 		"id": SONG_ID, "title": "Pack Steps", "week": WEEK_ID, "stage": STAGE_ID,
 		"audio": "songs/%s/Inst.ogg" % SONG_ID, "chart": "data/charts/%s.json" % SONG_ID,
@@ -63,22 +61,22 @@ func _build_pack() -> void:
 		"playerVisual": "assets/characters/neon", "opponentVisual": "assets/characters/pulse",
 		"playerIcon": "assets/icons/neon.png", "opponentIcon": "assets/icons/pulse.png",
 	}, true)
-	var chart: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/data/charts/neon-steps.json"))
+	var chart: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/mods/jave-demo/data/charts/neon-steps.json"))
 	chart["song"] = SONG_ID
 	_write(MOD_ROOT.path_join("mod.json"), JSON.stringify({"id": MOD_ID, "name": "ZZ Content Pack", "version": "1.0.0"}))
 	_write(MOD_ROOT.path_join("songs/%s/song.json" % SONG_ID), JSON.stringify(manifest))
-	_copy("res://content/songs/neon-steps/Inst.ogg", MOD_ROOT.path_join("songs/%s/Inst.ogg" % SONG_ID))
+	_copy("res://content/mods/jave-demo/songs/neon-steps/Inst.ogg", MOD_ROOT.path_join("songs/%s/Inst.ogg" % SONG_ID))
 	_write(MOD_ROOT.path_join("data/charts/%s.json" % SONG_ID), JSON.stringify(chart))
-	_copy("res://content/data/stages/neon.json", MOD_ROOT.path_join("data/stages/%s.json" % STAGE_ID))
+	_copy("res://content/mods/jave-demo/data/stages/neon.json", MOD_ROOT.path_join("data/stages/%s.json" % STAGE_ID))
 	_write(MOD_ROOT.path_join("data/weeks.json"), JSON.stringify({"weeks": [{"id": WEEK_ID, "name": "Pack Week", "songs": [SONG_ID]}]}))
 	_write(MOD_ROOT.path_join("data/cutscenes.json"), JSON.stringify({SONG_ID: {"before": "assets/videos/intro.ogv"}}))
-	_copy_tree("res://content/assets/demo/neon", MOD_ROOT.path_join("assets/characters/neon"))
-	_copy_tree("res://content/assets/demo/pulse", MOD_ROOT.path_join("assets/characters/pulse"))
-	_copy("res://content/assets/demo/neon/icon.png", MOD_ROOT.path_join("assets/icons/neon.png"))
-	_copy("res://content/assets/demo/pulse/icon.png", MOD_ROOT.path_join("assets/icons/pulse.png"))
-	_copy("res://content/assets/demo/stage.png", MOD_ROOT.path_join("assets/stages/pack.png"))
+	_copy_tree("res://content/mods/jave-demo/assets/demo/neon", MOD_ROOT.path_join("assets/characters/neon"))
+	_copy_tree("res://content/mods/jave-demo/assets/demo/pulse", MOD_ROOT.path_join("assets/characters/pulse"))
+	_copy("res://content/mods/jave-demo/assets/demo/neon/icon.png", MOD_ROOT.path_join("assets/icons/neon.png"))
+	_copy("res://content/mods/jave-demo/assets/demo/pulse/icon.png", MOD_ROOT.path_join("assets/icons/pulse.png"))
+	_copy("res://content/mods/jave-demo/assets/demo/stage.png", MOD_ROOT.path_join("assets/stages/pack.png"))
 	_copy_tree("res://content/assets/demo/notes", MOD_ROOT.path_join("assets/imported/notes"))
-	_copy("res://content/assets/demo/stage.png", MOD_ROOT.path_join("assets/imported/menus/weeks/%s.png" % WEEK_ID))
+	_copy("res://content/mods/jave-demo/assets/demo/stage.png", MOD_ROOT.path_join("assets/imported/menus/weeks/%s.png" % WEEK_ID))
 	_write(MOD_ROOT.path_join("scripts/pack.lua"),
 		"function on_song_start(id) if id == '%s' then jave_log('pack hook ' .. id) end end" % SONG_ID)
 
@@ -105,10 +103,22 @@ func _check_resolution(song: SongMeta) -> void:
 		shadow.id = SONG_ID
 		shadow.package_root = Paths.CONTENT_ROOT
 		var songs: Array[SongMeta] = _content.get("songs")
+		var package_songs: Array[SongMeta] = _content.get("package_songs")
 		songs.insert(0, shadow)
+		package_songs.insert(0, shadow)
 		check(_content.call("find_week_song", pack_week, SONG_ID) == song, "week song skips an earlier copy from another package")
 		check(_content.call("find_week_song", WeekMeta.new(), SONG_ID) == shadow, "week without a package takes the first copy")
 		songs.erase(shadow)
+		package_songs.erase(shadow)
+		var other_copy := SongMeta.new()
+		other_copy.id = SONG_ID
+		other_copy.package_root = Paths.CONTENT_ROOT
+		package_songs.append(other_copy)
+		var other_package_week := WeekMeta.new()
+		other_package_week.package_root = Paths.CONTENT_ROOT
+		check(_content.call("find_week_song", other_package_week, SONG_ID) == other_copy,
+				"a week resolves a duplicate song from its own package")
+		package_songs.erase(other_copy)
 	var other_week := WeekMeta.from_json({"id": "zz-no-banner", "songs": [SONG_ID]}, MOD_ROOT)
 	check(other_week.banner_path() == Ui.menu_asset("weeks/zz-no-banner.png"), "missing pack banner falls back to the menu art lookup")
 	check(_content.call("cutscene_path", SONG_ID, false) == MOD_ROOT.path_join("assets/videos/intro.ogv"), "pack cutscene resolves inside the pack")
@@ -188,11 +198,8 @@ func _check_menu_pack() -> void:
 	check((backdrop.get("_art") as TextureRect).texture == Ui.menu_texture("menuBG.png"), "backdrop draws the pack's art")
 	backdrop.free()
 	check(WeekMeta.from_json({"id": "zz-menu-week"}).banner_path() == MENU_ART.path_join("weeks/zz-menu-week.png"), "week banner falls back to the menu pack")
-	check(WeekMeta.from_json({"id": "zz-menu-week"}, "res://content").banner_path() == MENU_ART.path_join("weeks/zz-menu-week.png"),
-		"base content week without its own banner uses the menu pack")
-	if not _shipped_banner.is_empty():
-		var shipped_week := WeekMeta.from_json({"id": _shipped_banner.get_basename()}, "res://content")
-		check(shipped_week.banner_path() == MENU_ART.path_join("weeks").path_join(_shipped_banner), "menu pack banner replaces the base content's")
+	check(WeekMeta.from_json({"id": "zz-menu-week"}, MOD_ROOT).banner_path() == MENU_ART.path_join("weeks/zz-menu-week.png"),
+		"mod week without its own banner uses the menu pack")
 
 	ModPackImporter.remove_tree(MENU_MODS)
 	TextureCache.forget_under(MENU_MODS)
@@ -200,7 +207,7 @@ func _check_menu_pack() -> void:
 	var user_menus: String = root.get_node("/root/Paths").call("user_mirror", Ui.MENUS_ROOT)
 	for relative in MENU_FILES:
 		var expected := ""
-		for candidate: String in [user_menus.path_join(relative), Ui.MENUS_ROOT.path_join(relative)]:
+		for candidate: String in [user_menus.path_join(relative)]:
 			if FileAccess.file_exists(candidate):
 				expected = candidate
 				break
@@ -223,11 +230,6 @@ func _build_menu_pack() -> void:
 	_write_png(MENU_ART.path_join("buttons/story_mode/idle/frame_000.png"), Vector2i(60, 12), Color.GREEN)
 	_write_png(MENU_ART.path_join("menuBG.png"), Vector2i(32, 18), Color.YELLOW)
 	_write_png(MENU_ART.path_join("weeks/zz-menu-week.png"), Vector2i(48, 12), Color.WHITE)
-	for file in DirAccess.get_files_at(Ui.MENUS_ROOT.path_join("weeks")):
-		if file.get_extension() == "png":
-			_shipped_banner = file
-			_write_png(MENU_ART.path_join("weeks").path_join(file), Vector2i(48, 12), Color.WHITE)
-			break
 
 
 static func _write_png(path: String, image_size: Vector2i, color: Color) -> void:

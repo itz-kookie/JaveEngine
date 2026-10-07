@@ -41,8 +41,8 @@ godot --path godot -- --botplay # start songs with Botplay on
 
 ```text
 godot/            Godot project (autoloads, scenes, scripts, tests, export presets, addons)
-godot/content/    symlinks to the content folders below
-songs/ data/ assets/ scripts/ config/ mods/   shipped content
+godot/content/    engine assets, scripts, config and the mods/ symlink
+assets/ config/ scripts/ mods/                 engine defaults and playable mod packages
 tools/            Python content tools
 src/ include/ CMakeLists.txt                  C++ reference implementation (Windows)
 ```

@@ -4,7 +4,7 @@ Import content only when its license allows it or its owner has given permission
 
 ## Package layout
 
-The repository root is the base package. The game sees it through `godot/content/` (`res://content/`). Mods use the same layout inside their own folder.
+Playable content lives in mod folders under `mods/` (seen by Godot through `godot/content/mods/`). Each package is self-contained and uses this layout:
 
 ```text
 songs/<song-id>/song.json     song manifest
@@ -12,13 +12,14 @@ songs/<song-id>/Inst.ogg      song audio (any path named by song.json)
 data/charts/<song-id>.json    chart, see CHART_FORMAT.md
 data/stages/<stage>.json      stage camera and layout, see STAGE_PLACEMENT.md
 data/weeks.json               Story Mode weeks
-data/weeks.imported.json      imported Story Mode weeks (base package only, optional, not tracked)
+data/weeks.imported.json      legacy importer output; new packages use weeks.json
 data/cutscenes.json           Story Mode videos (optional)
 assets/                       images, characters, note art, videos
 scripts/                      Lua scripts, see SCRIPTING.md
 config/default.json           default settings
-mods/<mod-id>/                mod packages
 ```
+
+The engine-owned root keeps `config/`, Lua bootstrap scripts, and `assets/demo/notes/` as the fallback note style. Built-in playable content is shipped as `mods/jave-demo/`, `mods/fnf-tutorial/`, `mods/fnf-week1/` through `mods/fnf-week7/`, `mods/fnf-weekend1/`, `mods/fnf-test/`, and `mods/fnf-menus/`.
 
 ## song.json
 
@@ -45,7 +46,7 @@ mods/<mod-id>/                mod packages
 }
 ```
 
-- Paths are relative to the package root (the repository root, or the mod folder for a mod's songs).
+- Paths are relative to the mod folder.
 - A song is listed only if its `chart` file exists. Freeplay sorts by `order`, then title; `previewMs` is where the Freeplay preview starts.
 - `stage` selects `data/stages/<stage>.json` in the same package. Placement and camera fields (`boyfriendPosition`, `opponentPosition`, `girlfriendPosition`, `cameraBoyfriend`, `cameraOpponent`, `cameraGirlfriend`, `defaultZoom`, `cameraSpeed`, `hideGirlfriend`) may also be set here; the stage file overrides them.
 - `*Visual` fields name character folders (see [Stage placement](STAGE_PLACEMENT.md#character-folders)).
@@ -81,11 +82,11 @@ python tools/convert_audio.py --update-manifests --delete-wav --ffmpeg /path/to/
 ] }
 ```
 
-A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. In the base package, weeks from `user://content/data/weeks.imported.json` are listed first, then `data/weeks.imported.json` (written by the Psych importer, gitignored), then the shipped `data/weeks.json`; when several define the same id, the first one is used. Weeks from enabled mods are added after the base package's weeks, in Mods screen order, and a week whose id is already listed is skipped. A week plays each song from its own package when that package has a song with that id, otherwise the first installed one.
+A week plays the listed song ids that are installed, in order, and skips the rest; a week with none of its songs installed is hidden. Weeks come from enabled mods in Mods screen order. If several packages define the same week id, the first one is used. A week plays each song from its own package when that package has a song with that id, otherwise the first installed one.
 
 ## Cutscenes
 
-Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (`.ogv`) files listed in `data/cutscenes.json`, an optional file in any package (the demo has no cutscenes, so the base package ships none, and its path is gitignored):
+Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (`.ogv`) files listed in `data/cutscenes.json`, an optional file in any mod package:
 
 ```json
 { "my-song": { "before": "assets/videos/intro.ogv", "after": "assets/videos/outro.ogv" } }
@@ -93,9 +94,8 @@ Cutscenes play in Story Mode only, before or after a song. They are Ogg Theora (
 
 Paths are relative to the root of the package whose manifest lists them; absolute paths and `..` are rejected. For each song the manifests are read in this order, and the first one with an entry for that side decides:
 
-1. the package the song comes from (its mod, for a mod's song);
-2. the base package, where `user://content/data/cutscenes.json` replaces `data/cutscenes.json` when present and files under `user://content/` take precedence over the files in the content folders;
-3. the other enabled mods, in Mods screen order.
+1. the package the song comes from;
+2. the other enabled mods, in Mods screen order.
 
 A missing or unplayable video is skipped.
 
@@ -133,7 +133,7 @@ python tools/configure_stage_layouts.py
 - Unconverted JSON is kept under `migration/source-unconverted/` and summarised in `PSYCH_IMPORT_REPORT.md`.
 - `--characters-only [--character ID]` and `--notes-only` rebuild just those parts.
 
-Everything the importer writes is gitignored: songs, charts, stages, `assets/imported/`, `data/weeks.imported.json`, `migration/` and `PSYCH_IMPORT_REPORT.md`. It does not touch the shipped `data/weeks.json`. Check `git status` and do not commit imported media.
+The importer writes directly into `mods/fnf-original/`, including its songs, charts, stages, visuals and `data/weeks.json`. User-supplied media remains gitignored; do not commit or redistribute it without permission. The original import is preserved in this disabled aggregate package while the separate week mods are enabled for play. The conversion report is in that package; unconverted source files stay under `migration/source-unconverted/`.
 
 ## Mods
 
@@ -180,7 +180,7 @@ A pack's week plays its songs from the same pack when another package has songs 
 
 ### Packs from an imported library
 
-`python tools/make_content_packs.py` turns each week of `data/weeks.imported.json` (not the demo week) into a pack at `build/packs/<week-id>.zip`, holding a `fnf-<week-id>/` mod folder with the week's songs, charts, stages, character folders (with any attached speaker), icons, stage images, all 24 note images, the week banner and the week's cutscene entries and videos. Characters shared between weeks, such as bf and gf, are copied into each pack. Every mod folder is checked with `tools/validate_jave_mod.py` before it is zipped. It also builds `build/packs/menus.zip`, a `fnf-menus/` mod with no songs holding all of `assets/imported/menus/` (alphabet, title buttons, backdrops and every week banner) except `IMPORT_NOTICE.txt`; week banners stay in the week packs too. `--weeks week1 weekend1` builds only those weeks, `--menus` only the menus pack (the two combine), `--out DIR` writes elsewhere, and `--dry-run` lists each pack without writing. The packs hold the user's own imported content, for the user's own devices; they grant no redistribution rights.
+`python tools/make_content_packs.py mods/fnf-original --weeks tutorial week1 week2 week3 week4 week5 week6 week7 weekend1` builds one self-contained ZIP per week at `build/packs/<week-id>.zip`. Each pack includes its songs, charts, stages, character folders (with attached speakers), icons, stage images, note images, banner, and cutscenes. Shared assets are copied into every week that needs them. Every pack is checked with `tools/validate_jave_mod.py` before it is zipped. `--install mods/` installs validated package folders instead of creating ZIPs; destinations must not already exist. `--out DIR` changes the ZIP destination and `--dry-run` lists what would be built. Menu art is already its own `fnf-menus` mod. Imported packs are for the user's own devices and grant no redistribution rights.
 
 ### Zip layout
 
@@ -205,7 +205,7 @@ Web builds have no importer and no Import content pack row.
 
 ## Images and animation
 
-Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art is read from `assets/imported/menus/`: the title font (`alphabet/glyphs.json` and the glyph images beside it), the title buttons (`buttons/<id>/`), the backdrops (`menuBG.png`, `menuBGBlue.png`, `menuBGMagenta.png`, `menuCool.png`, `menuPurple.png`) and the week banners (`weeks/<week-id>.png`). Each file is looked up in this order, and the first copy wins: each enabled mod's `assets/imported/menus/` in Mods screen order, `user://content/assets/imported/menus/`, then the base package's `assets/imported/menus/`. The glyph images are always read from the folder of the `glyphs.json` that was found, so an alphabet is never mixed from two packages. A week banner is read from the week's own mod first, then by the same order. Menus fall back to plain text, and the backdrop to its gradient, when nothing is found. Lookups are remembered until the mod list is rescanned (after an import, or enabling or disabling a mod), so new menu art shows the next time a screen opens. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/` (for a mod's song), `user://content/assets/imported/notes/`, the base package's `assets/imported/notes/`, then the demo arrows in `assets/demo/notes/`.
+Images are PNG. Character folders hold one subfolder of `frame_*.png` files per pose plus an `animation.json`; see `mods/jave-demo/assets/demo/neon/` and [Stage placement](STAGE_PLACEMENT.md#character-folders). Menu art is read from `assets/imported/menus/`: the title font (`alphabet/glyphs.json` and the glyph images beside it), title buttons (`buttons/<id>/`), backdrops (`menuBG.png`, `menuBGBlue.png`, `menuBGMagenta.png`, `menuCool.png`, `menuPurple.png`) and week banners (`weeks/<week-id>.png`). Each file is looked up in this order, and the first copy wins: enabled mods in Mods screen order, then `user://content/assets/imported/menus/`. The glyph images are always read from the folder of the `glyphs.json` that was found, so an alphabet is never mixed from two packages. A week banner is read from the week's own mod first, then by the same order. Menus fall back to plain text, and the backdrop to its gradient, when nothing is found. Lookups are remembered until the mod list is rescanned (after an import, or enabling or disabling a mod), so new menu art shows the next time a screen opens. Note art (`<kind>_<lane>.png`, where kind is `receptor`, `press`, `confirm`, `note`, `hold` or `hold_end` and lane is `left`, `down`, `up` or `right`) is looked up per file, in this order: the song's mod `assets/imported/notes/`, `user://content/assets/imported/notes/`, then the engine-owned fallback arrows in `assets/demo/notes/`.
 
 ## Checklist
 

@@ -2,7 +2,7 @@
 
 Each "before"/"after" video gets a sibling .ogv and the manifest entry is rewritten to point at it.
 Re-running skips videos whose .ogv already exists.
-Usage: python tools/convert_cutscenes.py [content_root] [--dry-run] [--ffmpeg PATH]
+Usage: python tools/convert_cutscenes.py [mod_root] [--dry-run] [--ffmpeg PATH]
 """
 import argparse
 import json
@@ -79,8 +79,8 @@ def plan(manifest, root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("content_root", type=Path, nargs="?", default=ROOT / "godot" / "content",
-                        help="folder holding data/cutscenes.json (default: godot/content)")
+    parser.add_argument("content_root", type=Path, nargs="?", default=ROOT / "mods" / "fnf-original",
+                        help="package folder holding data/cutscenes.json (default: mods/fnf-original)")
     parser.add_argument("--dry-run", action="store_true", help="print what would change without writing anything")
     parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"))
     args = parser.parse_args()

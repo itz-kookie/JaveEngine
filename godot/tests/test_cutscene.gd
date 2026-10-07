@@ -3,8 +3,8 @@ extends "res://tests/test_base.gd"
 ## Cutscene manifest parsing and the story flow around before/after videos.
 ## Headless builds cannot rely on a decodable video, so most flows use a corrupt .ogv that opens but never starts.
 const USER_CONTENT := TEST_HOME + "/content/"
-const MANIFEST_MIRROR := USER_CONTENT + "data/cutscenes.json"
-const VIDEO_DIR := USER_CONTENT + "test-cutscenes"
+const MANIFEST_MIRROR := USER_CONTENT + "mods/jave-demo/data/cutscenes.json"
+const VIDEO_DIR := USER_CONTENT + "mods/jave-demo/test-cutscenes"
 const CORRUPT_VIDEO := "test-cutscenes/corrupt.ogv"
 const REAL_VIDEO := "test-cutscenes/real.ogv"
 const FINISH_TIMEOUT_FRAMES := 600
@@ -67,17 +67,19 @@ func _check_content_paths() -> void:
 		"s2": {"before": "../outside.ogv", "after": "/abs.ogv"},
 		"s3": {"before": ""},
 	})
-	check(content.call("cutscene_path", "s1", false) == USER_CONTENT + CORRUPT_VIDEO, "user mirror video wins")
-	check(content.call("cutscene_path", "s1", true) == "res://content/videos/shipped.ogv", "relative path resolves against content root")
+	content.call("scan")
+	check(content.call("cutscene_path", "s1", false) == USER_CONTENT + "mods/jave-demo/" + CORRUPT_VIDEO, "relative video resolves against the mod package")
+	check(content.call("cutscene_path", "s1", true) == "res://content/mods/jave-demo/videos/shipped.ogv", "relative outro resolves against the mod package")
 	check(content.call("cutscene_path", "s2", false) == "", "traversal rejected")
 	check(content.call("cutscene_path", "s2", true) == "", "absolute path rejected")
 	check(content.call("cutscene_path", "s3", false) == "", "empty path has no cutscene")
 	check(content.call("cutscene_path", "s4", false) == "", "song without entry has no cutscene")
 
 
-## A mod's data/cutscenes.json resolves against the mod; the song's own package is asked first, then the base content, then other mods.
+## A mod's data/cutscenes.json resolves against the mod; the song's own package is asked first, then other mods.
 func _check_mod_manifests() -> void:
 	var content := root.get_node("/root/Content")
+	_write_manifest({})
 	_write_mod()
 	_write_manifest({
 		MOD_SONG: {"before": "videos/root-before.ogv", "after": "videos/root-after.ogv"},
@@ -89,9 +91,8 @@ func _check_mod_manifests() -> void:
 	check(song != null and song.package_root == MOD_ROOT, "mod song is scanned with its package root")
 	check(content.call("cutscene_path", MOD_SONG, false) == MOD_ROOT.path_join("videos/intro.ogv"), "a mod song uses its own manifest first, resolved against the mod")
 	check(content.call("cutscene_path", MOD_SONG, true) == "", "traversal in a mod manifest is rejected")
-	check(content.call("cutscene_path", "s1", false) == USER_CONTENT + CORRUPT_VIDEO, "base content manifest wins for songs outside the mod")
-	check(content.call("cutscene_path", "zz-only-in-mod", false) == MOD_ROOT.path_join("videos/only.ogv"), "other enabled mods are asked after the base content")
-	check(content.call("cutscene_path", "neon-steps", true) == MOD_ROOT.path_join("videos/neon-after.ogv"), "a base song can take its cutscene from a mod")
+	check(content.call("cutscene_path", "zz-only-in-mod", false) == MOD_ROOT.path_join("videos/only.ogv"), "other enabled mods are searched for a cutscene")
+	check(content.call("cutscene_path", "neon-steps", true) == MOD_ROOT.path_join("videos/neon-after.ogv"), "another mod can supply a song's cutscene")
 	check(content.call("cutscene_path", "zz-absolute", false) == "", "absolute path in a mod manifest is rejected")
 	for mod: ModInfo in content.get("mods"):
 		if mod.root == MOD_ROOT:
@@ -108,7 +109,7 @@ func _write_mod() -> void:
 	_write(MOD_ROOT.path_join("mod.json"), JSON.stringify({"id": "zz-cutscene-test-mod", "name": "ZZ Cutscene Test"}))
 	_write(MOD_ROOT.path_join("songs").path_join(MOD_SONG).path_join("song.json"),
 		JSON.stringify({"id": MOD_SONG, "title": "ZZ", "chart": "data/charts/zz.json", "bpm": 120}))
-	_write(MOD_ROOT.path_join("data/charts/zz.json"), FileAccess.get_file_as_string("res://content/data/charts/neon-steps.json"))
+	_write(MOD_ROOT.path_join("data/charts/zz.json"), FileAccess.get_file_as_string("res://content/mods/jave-demo/data/charts/neon-steps.json"))
 	_write(MOD_ROOT.path_join("data/cutscenes.json"), JSON.stringify({
 		MOD_SONG: {"before": "videos/intro.ogv", "after": "../escape.ogv"},
 		"s1": {"before": "videos/mod-s1.ogv"},

@@ -687,21 +687,16 @@ void Engine::startStorySong(const Song& song) {
 bool Engine::startCutscene(const Song& song, bool outro) {
     if (!playingStory_ || song.weekId != "weekend1") return false;
     try {
-        const Json scenes = Json::fromFile(root_ / "data" / "cutscenes.json");
-        const std::string relative = scenes[song.id][outro ? "after" : "before"].asString();
-        if (relative.empty()) return false;
-        // Manifest paths must stay inside the installed engine folder.
-        const auto part = std::filesystem::path(relative);
-        if (part.is_absolute() || part.has_root_name()) throw std::runtime_error("Absolute cutscene path rejected");
-        for (const auto& component : part) if (component == "..") throw std::runtime_error("Cutscene path traversal rejected");
+        const auto path = content_.cutscenePath(song, outro);
+        if (path.empty()) return false;
         audio_.stop();
         play_.active = false;
-        if (!video_.start(window_, root_ / part, settings_.masterVolume)) {
-            log("Cutscene unavailable: " + relative + " HRESULT=" + std::to_string(video_.error()));
+        if (!video_.start(window_, path, settings_.masterVolume)) {
+            log("Cutscene unavailable: " + path.string() + " HRESULT=" + std::to_string(video_.error()));
             return false;
         }
         cutsceneSong_ = song;
-        cutsceneName_ = part.filename().string();
+        cutsceneName_ = path.filename().string();
         cutsceneOutro_ = outro;
         cutsceneStartedLogged_ = false;
         switchScreen(Screen::Cutscene);
@@ -953,7 +948,7 @@ void Engine::saveChartEditor() {
 void Engine::startWeek(const Week& week) {
     storyQueue_.clear();
     for (const std::string& songId : week.songIds) {
-        if (const Song* song = content_.findSong(songId)) storyQueue_.push_back(song);
+        if (const Song* song = content_.findWeekSong(week, songId)) storyQueue_.push_back(song);
     }
     if (storyQueue_.empty()) return;
     playingStory_ = true;
@@ -1189,10 +1184,11 @@ void Engine::render() {
 float Engine::drawFunkinLabel(const std::wstring& value, float x, float y, float width, float height) {
     const float startX = x;
     static std::map<std::wstring, Json> fonts;
-    const auto folder = root_ / "assets/imported/menus/alphabet";
+    const auto glyphManifest = content_.assetPath("assets/imported/menus/alphabet/glyphs.json");
+    const auto folder = glyphManifest.parent_path();
     const auto key = folder.wstring();
     if (!fonts.contains(key)) {
-        try { fonts.emplace(key, Json::fromFile(folder / "glyphs.json")); }
+        try { fonts.emplace(key, Json::fromFile(glyphManifest)); }
         catch (...) { fonts.emplace(key, Json::Object{}); }
     }
     const Json& font = fonts.at(key);
@@ -1224,7 +1220,7 @@ void Engine::drawBackdrop() {
             screen_ == Screen::Freeplay ? L"menuPurple.png" : L"menuCool.png";
         renderer_.clearGradient(RGB(252,219,92), RGB(219,141,180));
         const float zoom = 1.025f + static_cast<float>(std::sin(globalTime_ * 1.7) * .004);
-        renderer_.image(root_ / "assets/imported/menus" / background,
+        renderer_.image(content_.assetPath(std::filesystem::path("assets/imported/menus") / background),
                         width * (1 - zoom) * .5f, height * (1 - zoom) * .5f, width * zoom, height * zoom, false, true);
         return;
     }
@@ -1269,7 +1265,10 @@ void Engine::drawMenu(const std::vector<std::wstring>& items, float startY, floa
         float labelWidth = 0;
         bool usedWeekArt = false;
         if (screen_ == Screen::Story && static_cast<std::size_t>(i) < content_.weeks().size()) {
-            const auto path = root_ / "assets/imported/menus/weeks" / (content_.weeks()[static_cast<std::size_t>(i)].id + ".png");
+            const auto& week = content_.weeks()[static_cast<std::size_t>(i)];
+            auto path = week.packageRoot / "assets/imported/menus/weeks" / (week.id + ".png");
+            if (!std::filesystem::is_regular_file(path))
+                path = content_.assetPath(std::filesystem::path("assets/imported/menus/weeks") / (week.id + ".png"));
             static std::map<std::wstring, bool> available;
             const auto key = path.wstring();
             if (!available.contains(key)) available.emplace(key, std::filesystem::is_regular_file(path));
@@ -1298,7 +1297,7 @@ void Engine::drawMain() {
         const float x = width * (selected ? .105f : .075f);
         const float h = height * (selected ? .113f : .094f);
         if (i == 5) { drawFunkinLabel(L"EXIT", x + 30, y, width * .35f, h * .8f); continue; }
-        const auto base = root_ / "assets/imported/menus/buttons" / ids[i];
+        const auto base = content_.assetPath(std::filesystem::path("assets/imported/menus/buttons") / ids[i]);
         const Json& metadata = characterMetadata(base)[selected ? "left" : "idle"];
         if (metadata.isNull()) {
             const wchar_t* labels[] = {L"STORY MODE", L"FREEPLAY", L"MODS", L"OPTIONS", L"CREDITS"};
@@ -1318,7 +1317,7 @@ void Engine::drawMain() {
 void Engine::drawStory() {
     drawHeader(L"CAMPAIGN", L"STORY MODE", L"Choose a week - NORMAL difficulty");
     if (content_.weeks().empty()) {
-        renderer_.text(L"No weeks found. See data/weeks.json", 64, 250, 900, 50, 24, RGB(255, 150, 170));
+        renderer_.text(L"No weeks found. Enable a mod containing data/weeks.json", 64, 250, 900, 50, 24, RGB(255, 150, 170));
         return;
     }
     std::vector<std::wstring> labels;
@@ -1327,7 +1326,7 @@ void Engine::drawStory() {
     const float width = static_cast<float>(renderer_.width());
     const float height = static_cast<float>(renderer_.height());
     renderer_.rect(0, 120, width, height * .37f, RGB(249,202,89));
-    const Song* preview = week.songIds.empty() ? nullptr : content_.findSong(week.songIds.front());
+    const Song* preview = week.songIds.empty() ? nullptr : content_.findWeekSong(week, week.songIds.front());
     if (preview) {
         const double idleTime = std::fmod(globalTime_,1.0);
         const auto character = [&](const std::filesystem::path& base, float center, float h, bool player) {
@@ -1345,7 +1344,7 @@ void Engine::drawStory() {
     drawFunkinLabel(L"TRACKS", panelX, height*.57f, width*.36f, 42);
     float y = height*.64f;
     for (std::size_t index = 0; index < week.songIds.size(); ++index) {
-        const Song* song = content_.findSong(week.songIds[index]);
+        const Song* song = content_.findWeekSong(week, week.songIds[index]);
         drawFunkinLabel(widen(song ? song->title : week.songIds[index]), panelX, y, width*.38f, 29);
         y += 35;
     }

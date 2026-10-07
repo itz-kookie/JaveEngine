@@ -50,7 +50,7 @@ if(JAVE_ENABLE_LUA)
   target_compile_definitions(JaveEngine PRIVATE JAVE_HAS_LUA=1)
 endif()
 
-set(JAVE_RUNTIME_DIRS assets songs data mods scripts config saves licenses)
+set(JAVE_RUNTIME_DIRS assets mods scripts config saves licenses)
 foreach(runtime_dir IN LISTS JAVE_RUNTIME_DIRS)
   add_custom_command(TARGET JaveEngine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -75,5 +75,5 @@ endforeach()
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT JaveEngine)
 
 install(TARGETS JaveEngine RUNTIME DESTINATION .)
-install(DIRECTORY assets songs data mods scripts config saves licenses DESTINATION .)
+install(DIRECTORY assets mods scripts config saves licenses DESTINATION .)
 install(FILES ${JAVE_RUNTIME_FILES} DESTINATION .)

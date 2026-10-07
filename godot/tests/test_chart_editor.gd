@@ -3,7 +3,7 @@ extends "res://tests/test_base.gd"
 const TEMP_DIR := "user://test_chart_editor_tmp"
 const OVERRIDE_SOURCE := "res://content/data/charts/__jave_editor_test__.json"
 const OVERRIDE_PATH := TEST_HOME + "/content/data/charts/__jave_editor_test__.json"
-const NEON_STEPS := "res://content/data/charts/neon-steps.json"
+const NEON_STEPS := "res://content/mods/jave-demo/data/charts/neon-steps.json"
 
 var _state_script: GDScript
 var _ran := false

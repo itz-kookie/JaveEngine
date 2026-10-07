@@ -23,8 +23,13 @@ def load(path: Path):
         return None
 
 
+packages = []
+for package in sorted(path for path in (ROOT / "mods").glob("*") if path.is_dir() and (path / "mod.json").is_file()):
+    mod_data = load(package / "mod.json")
+    if isinstance(mod_data, dict) and not mod_data.get("sourceOnly", False):
+        packages.append(package)
 song_ids: set[str] = set()
-for package in [ROOT] + list((ROOT / "mods").glob("*")):
+for package in packages:
     for stage_file in (package / "data/stages").glob("*.json"):
         stage = load(stage_file)
         if not isinstance(stage, dict) or "layout" not in stage:
@@ -44,100 +49,99 @@ for package in [ROOT] + list((ROOT / "mods").glob("*")):
 player_notes = 0
 opponent_notes = 0
 camera_events = 0
-for manifest in sorted((ROOT / "songs").glob("*/song.json")):
-    song = load(manifest)
-    if not isinstance(song, dict):
-        continue
-    required = ("id", "title", "artist", "audio", "chart")
-    for field in required:
-        if not song.get(field):
-            errors.append(f"{manifest.relative_to(ROOT)}: missing {field}")
-    song_id = song.get("id", "")
-    if song_id in song_ids:
-        errors.append(f"duplicate song id: {song_id}")
-    song_ids.add(song_id)
-    if song.get("stage") and song.get("boyfriendPosition"):
-        stage_file = ROOT / "data" / "stages" / f"{song['stage']}.json"
-        if not stage_file.is_file():
-            errors.append(f"{manifest.relative_to(ROOT)}: missing stage metadata {stage_file.relative_to(ROOT)}")
-        for field in ("boyfriendPosition", "girlfriendPosition", "opponentPosition",
-                      "cameraBoyfriend", "cameraGirlfriend", "cameraOpponent"):
-            point = song.get(field)
-            if not isinstance(point, list) or len(point) != 2 or not all(isinstance(value, (int, float)) for value in point):
-                errors.append(f"{manifest.relative_to(ROOT)}: invalid {field}")
-    for field in ("stageImage", "playerIcon", "opponentIcon"):
-        if song.get(field) and not (ROOT / song[field]).is_file():
-            errors.append(f"{manifest.relative_to(ROOT)}: missing {field} {song[field]}")
-    for field in ("playerVisual", "opponentVisual", "girlfriendVisual"):
-        if song.get(field):
-            visual = ROOT / song[field]
-            for pose in ("idle.png", "left.png", "down.png", "up.png", "right.png"):
-                if not (visual / pose).is_file() and not list((visual / Path(pose).stem).glob("frame_*.png")):
-                    errors.append(f"{manifest.relative_to(ROOT)}: missing {field} pose {pose}")
-            for animation in ("idle", "left", "down", "up", "right"):
-                if not list((visual / animation).glob("frame_*.png")):
-                    errors.append(f"{manifest.relative_to(ROOT)}: missing {field} animation {animation}")
-    audio = ROOT / song.get("audio", "")
-    chart_path = ROOT / song.get("chart", "")
-    if audio.suffix.lower() == ".wav" and audio.with_suffix(".ogg").is_file():
-        audio = audio.with_suffix(".ogg")
-    if not audio.is_file():
-        errors.append(f"missing audio: {audio.relative_to(ROOT)}")
-    elif audio.suffix.lower() not in (".wav", ".ogg", ".mp3"):
-        errors.append(f"{audio.relative_to(ROOT)}: supported audio is WAV, Ogg Vorbis or MP3")
-    else:
-        try:
-            with audio.open("rb") as stream:
-                header = stream.read(12)
-            if audio.suffix.lower() == ".wav" and (header[:4] != b"RIFF" or header[8:12] != b"WAVE"):
-                raise ValueError("missing RIFF/WAVE header")
-            if audio.suffix.lower() == ".ogg" and header[:4] != b"OggS":
-                raise ValueError("missing OggS header")
-            if audio.suffix.lower() == ".mp3" and not is_mp3_header(header):
-                raise ValueError("missing ID3 tag or MPEG frame sync")
-        except Exception as exc:
-            errors.append(f"{audio.relative_to(ROOT)}: invalid audio: {exc}")
-    chart = load(chart_path) if chart_path.is_file() else None
-    if chart is None:
-        errors.append(f"missing or invalid chart: {chart_path.relative_to(ROOT)}")
-        continue
-    if chart.get("format") != "jave-chart-v1":
-        errors.append(f"{chart_path.relative_to(ROOT)}: wrong format")
-    previous = -1.0
-    notes = chart.get("notes", [])
-    if not notes:
-        errors.append(f"{chart_path.relative_to(ROOT)}: no notes")
-    for index, note in enumerate(notes):
-        time = note.get("timeMs", -1)
-        lane = note.get("lane", -1)
-        owner = note.get("owner", "player")
-        length = note.get("lengthMs", 0)
-        if not isinstance(time, (int, float)) or time < 0:
-            errors.append(f"{chart_path.relative_to(ROOT)} note {index}: invalid timeMs")
-        if lane not in range(4):
-            errors.append(f"{chart_path.relative_to(ROOT)} note {index}: lane must be 0..3")
-        if owner not in ("player", "opponent"):
-            errors.append(f"{chart_path.relative_to(ROOT)} note {index}: owner must be player or opponent")
-        elif owner == "player":
-            player_notes += 1
+for package in packages:
+    for manifest in sorted((package / "songs").glob("*/song.json")):
+        song = load(manifest)
+        if not isinstance(song, dict):
+            continue
+        required = ("id", "title", "artist", "audio", "chart")
+        for field in required:
+            if not song.get(field):
+                errors.append(f"{manifest.relative_to(ROOT)}: missing {field}")
+        song_id = song.get("id", "")
+        song_ids.add(song_id)
+        if song.get("stage") and song.get("boyfriendPosition"):
+            stage_file = package / "data" / "stages" / f"{song['stage']}.json"
+            if not stage_file.is_file():
+                errors.append(f"{manifest.relative_to(ROOT)}: missing stage metadata {stage_file.relative_to(ROOT)}")
+            for field in ("boyfriendPosition", "girlfriendPosition", "opponentPosition",
+                          "cameraBoyfriend", "cameraGirlfriend", "cameraOpponent"):
+                point = song.get(field)
+                if not isinstance(point, list) or len(point) != 2 or not all(isinstance(value, (int, float)) for value in point):
+                    errors.append(f"{manifest.relative_to(ROOT)}: invalid {field}")
+        for field in ("stageImage", "playerIcon", "opponentIcon"):
+            if song.get(field) and not (package / song[field]).is_file():
+                errors.append(f"{manifest.relative_to(ROOT)}: missing {field} {song[field]}")
+        for field in ("playerVisual", "opponentVisual", "girlfriendVisual"):
+            if song.get(field):
+                visual = package / song[field]
+                for pose in ("idle.png", "left.png", "down.png", "up.png", "right.png"):
+                    if not (visual / pose).is_file() and not list((visual / Path(pose).stem).glob("frame_*.png")):
+                        errors.append(f"{manifest.relative_to(ROOT)}: missing {field} pose {pose}")
+                for animation in ("idle", "left", "down", "up", "right"):
+                    if not list((visual / animation).glob("frame_*.png")):
+                        errors.append(f"{manifest.relative_to(ROOT)}: missing {field} animation {animation}")
+        audio = package / song.get("audio", "")
+        chart_path = package / song.get("chart", "")
+        if audio.suffix.lower() == ".wav" and audio.with_suffix(".ogg").is_file():
+            audio = audio.with_suffix(".ogg")
+        if not audio.is_file():
+            errors.append(f"missing audio: {audio.relative_to(ROOT)}")
+        elif audio.suffix.lower() not in (".wav", ".ogg", ".mp3"):
+            errors.append(f"{audio.relative_to(ROOT)}: supported audio is WAV, Ogg Vorbis or MP3")
         else:
-            opponent_notes += 1
-        if not isinstance(length, (int, float)) or length < 0:
-            errors.append(f"{chart_path.relative_to(ROOT)} note {index}: invalid lengthMs")
-        if isinstance(time, (int, float)) and time < previous:
-            errors.append(f"{chart_path.relative_to(ROOT)} note {index}: notes are not sorted")
-        if isinstance(time, (int, float)):
-            previous = time
-    previous_camera = -1.0
-    for index, event in enumerate(chart.get("cameraEvents", [])):
-        camera_events += 1
-        event_time = event.get("timeMs", -1)
-        if event.get("type") not in ("focus", "position", "zoom", "setZoom"):
-            errors.append(f"{chart_path.relative_to(ROOT)} camera event {index}: invalid type")
-        if not isinstance(event_time, (int, float)) or event_time < previous_camera:
-            errors.append(f"{chart_path.relative_to(ROOT)} camera event {index}: invalid ordering")
-        if isinstance(event_time, (int, float)):
-            previous_camera = event_time
+            try:
+                with audio.open("rb") as stream:
+                    header = stream.read(12)
+                if audio.suffix.lower() == ".wav" and (header[:4] != b"RIFF" or header[8:12] != b"WAVE"):
+                    raise ValueError("missing RIFF/WAVE header")
+                if audio.suffix.lower() == ".ogg" and header[:4] != b"OggS":
+                    raise ValueError("missing OggS header")
+                if audio.suffix.lower() == ".mp3" and not is_mp3_header(header):
+                    raise ValueError("missing ID3 tag or MPEG frame sync")
+            except Exception as exc:
+                errors.append(f"{audio.relative_to(ROOT)}: invalid audio: {exc}")
+        chart = load(chart_path) if chart_path.is_file() else None
+        if chart is None:
+            errors.append(f"missing or invalid chart: {chart_path.relative_to(ROOT)}")
+            continue
+        if chart.get("format") != "jave-chart-v1":
+            errors.append(f"{chart_path.relative_to(ROOT)}: wrong format")
+        previous = -1.0
+        notes = chart.get("notes", [])
+        if not notes:
+            errors.append(f"{chart_path.relative_to(ROOT)}: no notes")
+        for index, note in enumerate(notes):
+            time = note.get("timeMs", -1)
+            lane = note.get("lane", -1)
+            owner = note.get("owner", "player")
+            length = note.get("lengthMs", 0)
+            if not isinstance(time, (int, float)) or time < 0:
+                errors.append(f"{chart_path.relative_to(ROOT)} note {index}: invalid timeMs")
+            if lane not in range(4):
+                errors.append(f"{chart_path.relative_to(ROOT)} note {index}: lane must be 0..3")
+            if owner not in ("player", "opponent"):
+                errors.append(f"{chart_path.relative_to(ROOT)} note {index}: owner must be player or opponent")
+            elif owner == "player":
+                player_notes += 1
+            else:
+                opponent_notes += 1
+            if not isinstance(length, (int, float)) or length < 0:
+                errors.append(f"{chart_path.relative_to(ROOT)} note {index}: invalid lengthMs")
+            if isinstance(time, (int, float)) and time < previous:
+                errors.append(f"{chart_path.relative_to(ROOT)} note {index}: notes are not sorted")
+            if isinstance(time, (int, float)):
+                previous = time
+        previous_camera = -1.0
+        for index, event in enumerate(chart.get("cameraEvents", [])):
+            camera_events += 1
+            event_time = event.get("timeMs", -1)
+            if event.get("type") not in ("focus", "position", "zoom", "setZoom"):
+                errors.append(f"{chart_path.relative_to(ROOT)} camera event {index}: invalid type")
+            if not isinstance(event_time, (int, float)) or event_time < previous_camera:
+                errors.append(f"{chart_path.relative_to(ROOT)} camera event {index}: invalid ordering")
+            if isinstance(event_time, (int, float)):
+                previous_camera = event_time
 
 for manifest in sorted((ROOT / "mods").glob("*/mod.json")):
     mod = load(manifest)
@@ -150,11 +154,11 @@ for json_file in (ROOT / "config").glob("*.json"):
     load(json_file)
 
 week_ids: set[str] = set()
-for weeks_name, required_file in (("weeks.imported.json", False), ("weeks.json", True)):
-    weeks_path = ROOT / "data" / weeks_name
-    if not weeks_path.is_file() and not required_file:
+for package in packages:
+    weeks_path = package / "data" / "weeks.json"
+    if not weeks_path.is_file():
         continue
-    label = f"data/{weeks_name}"
+    label = str(weeks_path.relative_to(ROOT))
     weeks = load(weeks_path) if weeks_path.is_file() else None
     if not isinstance(weeks, dict) or not isinstance(weeks.get("weeks"), list):
         errors.append(f"{label}: missing weeks array")
@@ -198,7 +202,7 @@ def check_note_image(note_image: Path, kind: str, lane: str, check_palette: bool
         errors.append(f"{note_image.relative_to(ROOT)}: invalid PNG: {exc}")
 
 
-# The demo arrows are required; imported note art is optional and replaces them file by file.
+# The engine-owned demo arrows are required; each mod's note art is optional and replaces them file by file.
 for lane in ("left", "down", "up", "right"):
     for kind in ("receptor", "note", "press", "confirm", "hold", "hold_end"):
         file_name = f"{kind}_{lane}.png"
@@ -207,11 +211,12 @@ for lane in ("left", "down", "up", "right"):
             check_note_image(demo_image, kind, lane, False)
         else:
             errors.append(f"missing note PNG: {demo_image.relative_to(ROOT)}")
-        imported_image = ROOT / "assets" / "imported" / "notes" / file_name
-        if imported_image.is_file():
-            check_note_image(imported_image, kind, lane, "--psych-palette" in sys.argv)
-        elif "--psych-palette" in sys.argv:
-            errors.append(f"missing note PNG: {imported_image.relative_to(ROOT)}")
+        for package in packages:
+            imported_image = package / "assets" / "imported" / "notes" / file_name
+            if imported_image.is_file():
+                check_note_image(imported_image, kind, lane, "--psych-palette" in sys.argv)
+            elif "--psych-palette" in sys.argv and (package / "songs").is_dir():
+                errors.append(f"missing note PNG: {imported_image.relative_to(ROOT)}")
 
 for warning in warnings:
     print(f"warning: {warning}")

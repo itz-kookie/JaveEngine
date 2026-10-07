@@ -1,6 +1,6 @@
 extends "res://tests/test_base.gd"
 
-const NEON_STEPS_AUDIO := "res://content/songs/neon-steps/Inst.ogg"
+const NEON_STEPS_AUDIO := "res://content/mods/jave-demo/songs/neon-steps/Inst.ogg"
 const NEON_STEPS_SECONDS := 26.0
 const TEMP_WAV := "user://test_audio_pcm.wav"
 

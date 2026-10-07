@@ -58,7 +58,7 @@ Contents:
 - `mods/<mod-id>/`: mods and content packs installed by the user (copied in or imported from the Mods screen), loaded alongside the shipped `mods/`. See [Content packs](CONTENT_IMPORT.md#content-packs).
 - `cache/`: downloads and staging folders used while importing a content pack; safe to delete.
 - `saves/jave.log`: the game log, including Lua errors.
-- `content/...`: overrides that mirror shipped paths. A chart saved in the chart editor is written here (for example `user://content/data/charts/neon-steps.json`) and is loaded instead of the shipped chart. `user://content/data/cutscenes.json` and videos under `user://content/` override the cutscene manifest and videos in the content folders the same way. `user://content/data/weeks.imported.json` lists weeks before the content folders' weeks, and note art in `user://content/assets/imported/notes/` is used before the content folders' note art. Delete the file to return to the shipped version.
+- `content/...`: overrides that mirror shipped paths. A chart saved in the chart editor is written here (for example `user://content/mods/jave-demo/data/charts/neon-steps.json`) and is loaded instead of the shipped chart. Delete the file to return to the shipped version. Stage and cutscene files in shipped mods can also be overridden at their mirrored mod paths. Note art in `user://content/assets/imported/notes/` overrides mod-specific note art.
 
 ## Export
 
@@ -104,9 +104,9 @@ Bluetooth headphones and many Android devices report output latency poorly. Adju
 
 ## Troubleshooting
 
-- **No songs appear:** confirm `godot/content/songs` resolves to the repository's `songs/` folder and that each song has `songs/<id>/song.json` with an existing chart.
+- **No songs appear:** confirm each enabled folder in `mods/` has a `mod.json` and each song has `songs/<id>/song.json` with an existing chart.
 - **No audio:** check the `audio` path in `song.json` and that the file is Ogg Vorbis, WAV (PCM, float or Microsoft ADPCM) or MP3. Errors are written to `user://saves/jave.log`.
-- **A chart edit will not go away:** delete its file under `user://content/data/charts/`.
+- **A chart edit will not go away:** delete its file under the matching `user://content/mods/<mod-id>/data/charts/` path.
 
 ## C++ reference build (Windows)
 

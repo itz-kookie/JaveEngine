@@ -1,6 +1,7 @@
-"""Synthesize the Neon Steps demo track and encode it to Ogg Vorbis (songs/neon-steps/Inst.ogg).
+"""Synthesize the Neon Steps demo track and encode it to Ogg Vorbis.
 
 Usage: python tools/generate_neon_steps.py [output.ogg] [--ffmpeg PATH]
+Default output: mods/jave-demo/songs/neon-steps/Inst.ogg
 """
 import argparse
 import math
@@ -16,7 +17,7 @@ from convert_audio import convert, ffmpeg_problem
 
 RATE = 44100
 DURATION = 26.0
-OUT = Path(__file__).resolve().parents[1] / "songs" / "neon-steps" / "Inst.ogg"
+OUT = Path(__file__).resolve().parents[1] / "mods" / "jave-demo" / "songs" / "neon-steps" / "Inst.ogg"
 
 random.seed(0x4A415645)
 chords = [
@@ -97,7 +98,8 @@ def write_wav(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("output", type=Path, nargs="?", default=OUT, help="Ogg file to write (default: songs/neon-steps/Inst.ogg)")
+    parser.add_argument("output", type=Path, nargs="?", default=OUT,
+                        help="Ogg file to write (default: mods/jave-demo/songs/neon-steps/Inst.ogg)")
     parser.add_argument("--ffmpeg", default=shutil.which("ffmpeg"))
     args = parser.parse_args()
 

@@ -1,6 +1,6 @@
 extends "res://tests/test_base.gd"
 
-const NEON_STEPS := "res://content/data/charts/neon-steps.json"
+const NEON_STEPS := "res://content/mods/jave-demo/data/charts/neon-steps.json"
 const ROUND_TRIP_PATH := "user://test_chart_round_trip.json"
 
 

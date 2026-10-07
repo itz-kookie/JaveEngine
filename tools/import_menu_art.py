@@ -28,7 +28,16 @@ def main():
     parser.add_argument('jave_root',type=Path)
     args=parser.parse_args()
     source=args.psych_root/'assets/shared/images'
-    output=args.jave_root/'assets/imported/menus'
+    mod_root=args.jave_root/'mods'/'fnf-menus'
+    mod_root.mkdir(parents=True,exist_ok=True)
+    manifest=mod_root/'mod.json'
+    if not manifest.is_file():
+        manifest.write_text(json.dumps({
+            'id':'fnf-menus','name':'FNF Menus','version':'1.0.0',
+            'author':'User-supplied content','description':'Locally imported menu artwork.',
+            'enabled':True,'order':-10,
+        },indent=2)+'\n')
+    output=mod_root/'assets/imported/menus'
     output.mkdir(parents=True,exist_ok=True)
     for name in ('menuBG','menuBGMagenta','menuBGBlue'):
         Image.open(source/f'{name}.png').convert('RGBA').save(output/f'{name}.png')
